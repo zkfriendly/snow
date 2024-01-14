@@ -50,7 +50,7 @@ contract Snow is CCIPReceiver {
         // Create an EVM2AnyMessage struct in memory with necessary information for sending a cross-chain message
         Client.EVM2AnyMessage memory frostSignal = Client.EVM2AnyMessage({
             receiver: abi.encode(TARGET_FACILITATOR_ADDRESS), // ABI-encoded receiver address
-            data: abi.encodeWithSelector(ILinkFrost.frost.selector, _to, _amount), // ABI-encoded string
+            data: abi.encode(_to, _amount), // ABI-encoded string
             tokenAmounts: new Client.EVMTokenAmount[](0), // Empty array indicating no tokens are being sent
             extraArgs: Client._argsToBytes(
                 // Additional arguments, setting gas limit
@@ -76,7 +76,7 @@ contract Snow is CCIPReceiver {
 
     /// @notice burn GHO on the source chain
     function _ccipReceive(Client.Any2EVMMessage memory thawSignal) internal override {
-        bytes32 thawId = thawSignal.messageId; // fetch the messageId
+        bytes32 thawId = thawSignal.messageId;
         (address to, uint256 amount) = abi.decode(thawSignal.data, (address, uint256));
 
         GHO.safeTransfer(to, amount);
