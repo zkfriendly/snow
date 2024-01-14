@@ -62,7 +62,7 @@ contract FrostTest is Test {
         });
         vm.mockCall(router, abi.encodeWithSelector(IRouterClient.getFee.selector), abi.encode(10)); // set fee to 10
         vm.mockCall(linkToken, abi.encodeWithSelector(IERC20.balanceOf.selector, address(frost)), abi.encode(100)); // set balance to 100
-        vm.mockCall(linkToken, abi.encodeWithSelector(IERC20.approve.selector, router, amount), abi.encode(true));
+        vm.mockCall(linkToken, abi.encodeWithSelector(IERC20.approve.selector, router, 10), abi.encode(true));
         vm.mockCall(router, abi.encodeWithSelector(IRouterClient.ccipSend.selector), abi.encode(keccak256("thaw"))); // send thaw
         vm.mockCall(
             ghoToken,
@@ -71,7 +71,7 @@ contract FrostTest is Test {
         );
         vm.mockCall(ghoToken, abi.encodeWithSelector(IGhoToken.burn.selector, amount), abi.encode(true));
 
-        vm.expectCall(linkToken, abi.encodeWithSelector(IERC20.approve.selector, router, amount)); // set balance to 100
+        vm.expectCall(linkToken, abi.encodeWithSelector(IERC20.approve.selector, router, 10));
         vm.expectCall(router, abi.encodeWithSelector(IRouterClient.ccipSend.selector, sourceChainId, thawSignal)); // send thaw
         vm.expectCall(
             address(ghoToken), abi.encodeWithSelector(IERC20.transferFrom.selector, from, address(frost), amount)

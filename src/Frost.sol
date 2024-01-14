@@ -11,7 +11,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "forge-std/Test.sol";
 
 contract Frost is CCIPReceiver {
-    using SafeERC20 for IGhoToken;
+    using SafeERC20 for IERC20;
 
     IGhoToken public immutable GHO; // GHO token address
     IRouterClient public immutable ROUTER; // chainlink router address
@@ -51,13 +51,13 @@ contract Frost is CCIPReceiver {
         // calculate and approve cross-chain transaction fee
         uint256 fee = ROUTER.getFee(SOURCE_CHAIN_ID, thawSignal);
         if (FEE_TOKEN.balanceOf(address(this)) < fee) revert NotEnoughBalance(FEE_TOKEN.balanceOf(address(this)), fee);
-        IERC20(FEE_TOKEN).approve(address(ROUTER), _amount);
+        IERC20(FEE_TOKEN).approve(address(ROUTER), fee);
 
         // send cross-chain message
         thawId = ROUTER.ccipSend(SOURCE_CHAIN_ID, thawSignal);
 
         // transfer GHO to this contract and burn it
-        GHO.safeTransferFrom(msg.sender, address(this), _amount);
+        IERC20(GHO).safeTransferFrom(msg.sender, address(this), _amount);
         GHO.burn(_amount);
 
         emit Thaw(_to, _amount, thawId);
