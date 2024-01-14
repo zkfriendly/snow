@@ -27,6 +27,18 @@ contract SnowTest is Test {
     }
 
     function testFuzz_Frost(address alice, uint256 amount) public {
+        Client.EVM2AnyMessage memory frostSignal = Client.EVM2AnyMessage({
+            receiver: abi.encode(linkFrost), // ABI-encoded receiver address
+            data: abi.encode(alice, amount), // ABI-encoded string
+            tokenAmounts: new Client.EVMTokenAmount[](0), // Empty array indicating no tokens are being sent
+            extraArgs: Client._argsToBytes(
+                // Additional arguments, setting gas limit
+                Client.EVMExtraArgsV1({gasLimit: 200_000})
+                ),
+            // Set the feeToken  address, indicating LINK will be used for fees
+            feeToken: address(linkToken)
+        });
+
         vm.mockCall(
             ghoToken,
             abi.encodeWithSelector(IERC20.transferFrom.selector, alice, address(snow), amount),
@@ -40,12 +52,11 @@ contract SnowTest is Test {
         ); // approve 10
         vm.mockCall(tRouter, abi.encode(IRouterClient.ccipSend.selector), abi.encode(keccak256("forge"))); // send forge
 
-        vm.expectEmit(address(snow));
         vm.expectCall(linkToken, abi.encodeWithSelector(IERC20.approve.selector, address(tRouter), uint256(10)));
-
-        emit Snow.Frost(address(this), amount, keccak256("forge"));
-
+        vm.expectCall(tRouter, abi.encodeWithSelector(IRouterClient.ccipSend.selector, targetChainId, frostSignal));
+        vm.expectEmit(address(snow));
+        emit Snow.Frost(alice, amount, keccak256("forge"));
         vm.prank(alice);
-        snow.frost(address(this), amount);
+        snow.frost(alice, amount);
     }
 }

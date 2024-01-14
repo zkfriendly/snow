@@ -73,8 +73,6 @@ contract Snow is CCIPReceiver {
 
         GHO.safeTransferFrom(msg.sender, address(this), _amount);
 
-        console2.log("Sender");
-
         emit Frost(_to, _amount, frostId);
     }
 
