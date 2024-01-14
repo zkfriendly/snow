@@ -2,6 +2,8 @@
 pragma solidity ^0.8.13;
 
 import {IRouterClient} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "forge-std/Test.sol";
 
 contract Snow {
     address public immutable GHO; // GHO token address
@@ -17,5 +19,9 @@ contract Snow {
     /// @notice mint GHO on the target chain
     /// @param _to recipient address on the target chain
     /// @param _amount amount of GHO to be minted on the target chain
-    function frost(address _to, uint256 _amount) external {}
+    function frost(address _to, uint256 _amount) external {
+        console2.log(msg.sender, address(this), GHO);
+
+        IERC20(GHO).transferFrom(msg.sender, address(this), _amount);
+    }
 }
