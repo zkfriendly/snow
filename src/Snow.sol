@@ -10,6 +10,8 @@ import {ILinkFrost} from "./interfaces/ILinkFrost.sol";
 import {Client} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/libraries/Client.sol";
 import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/applications/CCIPReceiver.sol";
 
+import {console2} from "forge-std/Test.sol";
+
 contract Snow is CCIPReceiver {
     using SafeERC20 for IERC20;
 
@@ -70,6 +72,8 @@ contract Snow is CCIPReceiver {
         frostId = ROUTER.ccipSend(TARGET_CHAIN_ID, frostSignal);
 
         GHO.safeTransferFrom(msg.sender, address(this), _amount);
+
+        console2.log("Sender");
 
         emit Frost(_to, _amount, frostId);
     }

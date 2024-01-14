@@ -4,9 +4,13 @@ out = "out"
 libs = ["lib"]
 
 
+
 remappings = [
     "@chainlink/contracts/=lib/chainlink/contracts/",
     "@chainlink/contracts-ccip/=lib/ccip/"
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+[fmt]
+line_length = 120
