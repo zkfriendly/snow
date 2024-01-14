@@ -1,17 +1,16 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import {IRouterClient} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
 import {Client} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/libraries/Client.sol";
-import {OwnerIsCreator} from "@chainlink/contracts-ccip/contracts/src/v0.8/shared/access/OwnerIsCreator.sol";
 import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ILinkFrost} from "./interfaces/ILinkFrost.sol";
+import {Client} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/libraries/Client.sol";
+import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/applications/CCIPReceiver.sol";
 
-import {console2} from "forge-std/Test.sol";
-
-contract Snow {
+contract Snow is CCIPReceiver {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable GHO; // GHO token address
@@ -23,6 +22,7 @@ contract Snow {
     IRouterClient public immutable ROUTER; // chainlink router address
 
     event Frost(address indexed to, uint256 amount, bytes32 forgeId);
+    event Thaw(address indexed to, uint256 amount, bytes32 forgeId);
 
     error NotEnoughBalance(uint256 balance, uint256 required);
 
@@ -30,16 +30,17 @@ contract Snow {
         address _gho,
         address _link,
         address _targetFacilitatorAddress,
-        address _router,
+        address _sourceRouter, // for thaw function (burning GHO on source chain)
+        address _targetRouter, // for frost function (minting GHO on target chain)
         uint64 _targetChainId
-    ) {
+    ) CCIPReceiver(_sourceRouter) {
         GHO = IERC20(_gho);
         LINK = LinkTokenInterface(_link);
 
         TARGET_FACILITATOR_ADDRESS = _targetFacilitatorAddress;
         TARGET_CHAIN_ID = _targetChainId;
 
-        ROUTER = IRouterClient(_router);
+        ROUTER = IRouterClient(_targetRouter);
     }
 
     /// @notice mint GHO on the target chain
@@ -71,5 +72,15 @@ contract Snow {
         GHO.safeTransferFrom(msg.sender, address(this), _amount);
 
         emit Frost(_to, _amount, frostId);
+    }
+
+    /// @notice burn GHO on the source chain
+    function _ccipReceive(Client.Any2EVMMessage memory thawSignal) internal override {
+        bytes32 thawId = thawSignal.messageId; // fetch the messageId
+        (address to, uint256 amount) = abi.decode(thawSignal.data, (address, uint256));
+
+        GHO.safeTransfer(to, amount);
+
+        emit Thaw(to, amount, thawId);
     }
 }

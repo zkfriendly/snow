@@ -12,10 +12,11 @@ contract WormholeTest is Test {
     address public linkToken = address(2);
     address public linkForge = address(3);
     address public router = address(4);
+    address public sourceRouter = address(5);
     uint64 public targetChainId = 2;
 
     function setUp() public {
-        snow = new Snow(ghoToken, linkToken, linkForge, router, targetChainId);
+        snow = new Snow(ghoToken, linkToken, linkForge, sourceRouter, router, targetChainId);
     }
 
     function test_Setup() public {
@@ -24,7 +25,7 @@ contract WormholeTest is Test {
         assertEq(snow.TARGET_CHAIN_ID(), targetChainId);
     }
 
-    function test_FrostIncreasesBalance() public {
+    function test_Frost() public {
         uint256 amount = 100;
 
         vm.mockCall(
