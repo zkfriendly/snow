@@ -6,7 +6,7 @@ import {Snow} from "../src/Snow.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRouterClient} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
 
-contract WormholeTest is Test {
+contract SnowTest is Test {
     Snow public snow;
     address public ghoToken = address(1);
     address public linkToken = address(2);
