@@ -17,7 +17,7 @@ contract Snow is CCIPReceiver {
     IERC20 public immutable GHO; // GHO token address
     IERC20 public immutable FEE_TOKEN; // LINK token address
 
-    address public immutable TARGET_FACILITATOR_ADDRESS; // GHO facilitator address on the target chain
+    address public TARGET_FACILITATOR_ADDRESS; // GHO facilitator address on the target chain
     uint64 public immutable TARGET_CHAIN_ID; // target chain id
 
     IRouterClient public immutable ROUTER; // chainlink router address
@@ -26,22 +26,25 @@ contract Snow is CCIPReceiver {
     event Thaw(address indexed to, uint256 amount, bytes32 forgeId);
 
     error NotEnoughBalance(uint256 balance, uint256 required);
+    error FacilitatorAlreadySet(address facilitator);
 
     constructor(
         address _gho,
         address _link,
-        address _targetFacilitatorAddress,
-        address _sourceRouter, // for thaw function (burning GHO on source chain)
-        address _targetRouter, // for frost function (minting GHO on target chain)
+        address _router, // for thaw function (burning GHO on source chain)
         uint64 _targetChainId
-    ) CCIPReceiver(_sourceRouter) {
+    ) CCIPReceiver(_router) {
         GHO = IERC20(_gho);
         FEE_TOKEN = IERC20(_link);
 
-        TARGET_FACILITATOR_ADDRESS = _targetFacilitatorAddress;
         TARGET_CHAIN_ID = _targetChainId;
 
-        ROUTER = IRouterClient(_targetRouter);
+        ROUTER = IRouterClient(_router);
+    }
+
+    function setFacilitator(address _facilitator) external {
+        if (TARGET_FACILITATOR_ADDRESS != address(0)) revert FacilitatorAlreadySet(TARGET_FACILITATOR_ADDRESS);
+        TARGET_FACILITATOR_ADDRESS = _facilitator;
     }
 
     /// @notice mint GHO on the target chain
