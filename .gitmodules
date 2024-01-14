@@ -8,3 +8,6 @@
 	path = lib/ccip
 	url = https://github.com/smartcontractkit/ccip
 	branch = ccip-develop
+[submodule "lib/chainlink"]
+	path = lib/chainlink
+	url = https://github.com/smartcontractkit/chainlink

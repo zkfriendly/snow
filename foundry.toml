@@ -5,6 +5,7 @@ libs = ["lib"]
 
 
 remappings = [
+    "@chainlink/contracts/=lib/chainlink/contracts/",
     "@chainlink/contracts-ccip/=lib/ccip/"
 ]
 
