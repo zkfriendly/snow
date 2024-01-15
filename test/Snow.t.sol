@@ -57,6 +57,6 @@ contract SnowTest is Test {
         vm.expectEmit(address(snow));
         emit Snow.Frost(alice, amount, keccak256("forge"));
         vm.prank(alice);
-        snow.frost(alice, amount);
+        snow.cashFrost(alice, amount);
     }
 }

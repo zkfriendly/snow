@@ -55,11 +55,22 @@ contract Snow is CCIPReceiver {
         targetFacilitatorAddress = _facilitator;
     }
 
-    /// @notice locks `_amount` GHO tokens on mainnet, and then sends a CCIP message
-    /// with `_to` and `_amount` to the target chain
-    /// @param _to recipient address on the target chain
-    /// @param _amount amount of GHO to be minted on the target chain
-    function frost(address _to, uint256 _amount) external returns (bytes32 frostId) {
+    function borrowFrost(address _to, uint256 _amount) external returns (bytes32 frostId) {
+        // borrow GHO from AAVE if msg.sender has deligated credit to Snow.
+
+        frostId = _frost(_to, _amount);
+    }
+
+    /// @notice takes in GHO and locks it, then sends a CCIP message to the target chain
+    /// @param _to address to receive GHO on the target chain
+    /// @param _amount amount of GHO to be locked on mainnet and minted on the target chain
+    function cashFrost(address _to, uint256 _amount) external returns (bytes32 frostId) {
+        gho.safeTransferFrom(msg.sender, address(this), _amount); // lock GHO on mainnet
+        frostId = _frost(_to, _amount);
+    }
+
+    /// @dev sends a CCIP message with `_to` and `_amount` to the target chain
+    function _frost(address _to, uint256 _amount) internal returns (bytes32 frostId) {
         IERC20 _feeToken = feeToken;
         uint64 _targetChainId = targetChainId;
 
@@ -77,7 +88,6 @@ contract Snow is CCIPReceiver {
         }
         _feeToken.approve(address(router), ccipFees); // allow chainlink router to take fees
         frostId = router.ccipSend(_targetChainId, frostMessage);
-        gho.safeTransferFrom(msg.sender, address(this), _amount); // lock GHO on mainnet
 
         emit Frost(_to, _amount, frostId);
     }
