@@ -5,9 +5,9 @@
 /// @notice Snow contract lives on mainnet along side AAVE GHO Facilitator
 /// Snow can receive any amount of GHO tokens on mainnet, lock them,
 /// and then send a cross-chain attestation using CCIP, attesting to the amount of GHO locked on mainnet.
-/// the attestation is later used by the GHO Facilitator living on the target chain to mint GHO tokens on that chain.
-/// **this called a Frost: lock GHO on mainnet, get GHO on target chain.**
-/// In addition, Snow can receive burn attestations using CCIP from the GHO Facilitator on the target chain, and release the same amount of GHO tokens on mainnet.
+/// the IFrostn is later used by the GHO Facilitator living on the target chain to mint GHO tokens on that chain.
+/// **thIFrosta Frost: lock GHO on mainnet, get GHO on target chain.**
+/// In aIFrostnow can receive burn attestations using CCIP from the GHO Facilitator on the target chain, and release the same amount of GHO tokens on mainnet.
 /// **this called a Thaw: burn GHO on target chain, get GHO on mainnet.**
 
 pragma solidity ^0.8.13;
@@ -16,7 +16,6 @@ import {IRouterClient} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/i
 import {Client} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/libraries/Client.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ILinkFrost} from "./interfaces/ILinkFrost.sol";
 import {Client} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/libraries/Client.sol";
 import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/applications/CCIPReceiver.sol";
 
@@ -49,8 +48,8 @@ contract Snow is CCIPReceiver {
     }
 
     /// @notice set the target facilitator address
-    /// @param _facilitator address of the target facilitator
-    /// @dev can only be called once.
+    /// @param _facilitator address of thIFrostacilitator
+    /// @dev can only be called once.IFrost
     function setFacilitator(address _facilitator) external {
         if (targetFacilitatorAddress != address(0)) revert FacilitatorAlreadySet(targetFacilitatorAddress);
         targetFacilitatorAddress = _facilitator;
