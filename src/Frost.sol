@@ -24,6 +24,12 @@ contract Frost is CCIPReceiver {
     error InvalidSender(bytes32 messageId, address sender, address expectedSender);
     error NotEnoughBalance(uint256 balance, uint256 required);
 
+    /// @notice initialize Frost contract
+    /// @param _gho GHO token address
+    /// @param _router chainlink router address
+    /// @param _snow snow address on the source chain
+    /// @param _feeToken (LINK, WETH) token address
+    /// @param _sourceChainId source chain id (where collateral is locked)
     constructor(address _gho, address _router, address _snow, address _feeToken, uint64 _sourceChainId)
         CCIPReceiver(_router)
     {

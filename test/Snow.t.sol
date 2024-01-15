@@ -21,9 +21,9 @@ contract SnowTest is Test {
     }
 
     function test_Setup() public {
-        assertEq(address(snow.GHO()), address(ghoToken));
-        assertEq(address(snow.ROUTER()), router);
-        assertEq(snow.TARGET_CHAIN_ID(), targetChainId);
+        assertEq(address(snow.gho()), address(ghoToken));
+        assertEq(address(snow.router()), router);
+        assertEq(snow.targetChainId(), targetChainId);
     }
 
     function testFuzz_Frost(address alice, uint256 amount) public {

@@ -1,4 +1,15 @@
 // SPDX-License-Identifier: MIT
+
+/// @title Snow: GHO Portal Facilitator
+/// @author zkfriendly
+/// @notice Snow contract lives on mainnet along side AAVE GHO Facilitator
+/// Snow can receive any amount of GHO tokens on mainnet, lock them,
+/// and then send a cross-chain attestation using CCIP, attesting to the amount of GHO locked on mainnet.
+/// the attestation is later used by the GHO Facilitator living on the target chain to mint GHO tokens on that chain.
+/// **this called a Frost: lock GHO on mainnet, get GHO on target chain.**
+/// In addition, Snow can receive burn attestations using CCIP from the GHO Facilitator on the target chain, and release the same amount of GHO tokens on mainnet.
+/// **this called a Thaw: burn GHO on target chain, get GHO on mainnet.**
+
 pragma solidity ^0.8.13;
 
 import {IRouterClient} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
@@ -9,81 +20,79 @@ import {ILinkFrost} from "./interfaces/ILinkFrost.sol";
 import {Client} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/libraries/Client.sol";
 import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/applications/CCIPReceiver.sol";
 
-import {console2} from "forge-std/Test.sol";
-
 contract Snow is CCIPReceiver {
     using SafeERC20 for IERC20;
 
-    IERC20 public immutable GHO; // GHO token address
-    IERC20 public immutable FEE_TOKEN; // LINK token address
+    IERC20 public immutable gho;
+    IERC20 public immutable feeToken; // token used to pay for CCIP fees
+    uint64 public immutable targetChainId; // Chainlink Specific Chain ID
+    IRouterClient public immutable router; // chainlink router address
+    address public targetFacilitatorAddress;
 
-    address public TARGET_FACILITATOR_ADDRESS; // GHO facilitator address on the target chain
-    uint64 public immutable TARGET_CHAIN_ID; // target chain id
-
-    IRouterClient public immutable ROUTER; // chainlink router address
-
-    event Frost(address indexed to, uint256 amount, bytes32 forgeId);
-    event Thaw(address indexed to, uint256 amount, bytes32 forgeId);
+    event Frost(address indexed to, uint256 amount, bytes32 forgeId); // GHO locked on mainnet, GHO minted on target chain
+    event Thaw(address indexed to, uint256 amount, bytes32 forgeId); // GHO burned on target chain, GHO unlocked on mainnet
 
     error NotEnoughBalance(uint256 balance, uint256 required);
     error FacilitatorAlreadySet(address facilitator);
+    error InvalidSender(bytes32 messageId, address sender, address expectedSender);
 
-    constructor(
-        address _gho,
-        address _link,
-        address _router, // for thaw function (burning GHO on source chain)
-        uint64 _targetChainId
-    ) CCIPReceiver(_router) {
-        GHO = IERC20(_gho);
-        FEE_TOKEN = IERC20(_link);
-
-        TARGET_CHAIN_ID = _targetChainId;
-
-        ROUTER = IRouterClient(_router);
+    /// @notice initialize Snow contract
+    /// @param _gho GHO token address
+    /// @param _link we are choosing LINK as the fee token
+    /// @param _router chainlink router address
+    /// @param _targetChainId target chain id (where GHO is minted)
+    constructor(address _gho, address _link, address _router, uint64 _targetChainId) CCIPReceiver(_router) {
+        gho = IERC20(_gho);
+        feeToken = IERC20(_link);
+        targetChainId = _targetChainId;
+        router = IRouterClient(_router);
     }
 
+    /// @notice set the target facilitator address
+    /// @param _facilitator address of the target facilitator
+    /// @dev can only be called once.
     function setFacilitator(address _facilitator) external {
-        if (TARGET_FACILITATOR_ADDRESS != address(0)) revert FacilitatorAlreadySet(TARGET_FACILITATOR_ADDRESS);
-        TARGET_FACILITATOR_ADDRESS = _facilitator;
+        if (targetFacilitatorAddress != address(0)) revert FacilitatorAlreadySet(targetFacilitatorAddress);
+        targetFacilitatorAddress = _facilitator;
     }
 
-    /// @notice mint GHO on the target chain
+    /// @notice locks `_amount` GHO tokens on mainnet, and then sends a CCIP message
+    /// with `_to` and `_amount` to the target chain
     /// @param _to recipient address on the target chain
     /// @param _amount amount of GHO to be minted on the target chain
     function frost(address _to, uint256 _amount) external returns (bytes32 frostId) {
-        // Create an EVM2AnyMessage struct in memory with necessary information for sending a cross-chain message
         Client.EVM2AnyMessage memory frostSignal = Client.EVM2AnyMessage({
-            receiver: abi.encode(TARGET_FACILITATOR_ADDRESS), // ABI-encoded receiver address
-            data: abi.encode(_to, _amount), // ABI-encoded string
-            tokenAmounts: new Client.EVMTokenAmount[](0), // Empty array indicating no tokens are being sent
-            extraArgs: Client._argsToBytes(
-                // Additional arguments, setting gas limit
-                Client.EVMExtraArgsV1({gasLimit: 200_000})
-                ),
-            // Set the feeToken  address, indicating LINK will be used for fees
-            feeToken: address(FEE_TOKEN)
+            receiver: abi.encode(targetFacilitatorAddress),
+            data: abi.encode(_to, _amount),
+            tokenAmounts: new Client.EVMTokenAmount[](0),
+            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 200_000})),
+            feeToken: address(feeToken)
         });
 
-        uint256 fees = ROUTER.getFee(TARGET_CHAIN_ID, frostSignal);
+        uint256 ccipFee = router.getFee(targetChainId, frostSignal);
 
-        if (fees > FEE_TOKEN.balanceOf(address(this))) {
-            revert NotEnoughBalance(FEE_TOKEN.balanceOf(address(this)), fees);
+        if (ccipFee > feeToken.balanceOf(address(this))) {
+            revert NotEnoughBalance(feeToken.balanceOf(address(this)), ccipFee);
         }
 
-        FEE_TOKEN.approve(address(ROUTER), fees);
-        frostId = ROUTER.ccipSend(TARGET_CHAIN_ID, frostSignal);
-
-        GHO.safeTransferFrom(msg.sender, address(this), _amount);
+        feeToken.approve(address(router), ccipFee); // allow chainlink router to take fees
+        frostId = router.ccipSend(targetChainId, frostSignal);
+        gho.safeTransferFrom(msg.sender, address(this), _amount); // lock GHO on mainnet
 
         emit Frost(_to, _amount, frostId);
     }
 
-    /// @notice burn GHO on the source chain
-    function _ccipReceive(Client.Any2EVMMessage memory thawSignal) internal override {
-        bytes32 thawId = thawSignal.messageId;
-        (address to, uint256 amount) = abi.decode(thawSignal.data, (address, uint256));
-
-        GHO.safeTransfer(to, amount);
+    /// @notice Whenever the target chain facilitator burns GHO tokens on the target chain,
+    /// it sends a CCIP message to this contract, with the amount of GHO burned, and a recipient address on mainnet.
+    /// it then releases the same amount of GHO tokens on mainnet to the recipient address.
+    /// @param thawMessage CCIP message sent by the target chain facilitator through the chainlink router
+    function _ccipReceive(Client.Any2EVMMessage memory thawMessage) internal override {
+        bytes32 thawId = thawMessage.messageId;
+        address sender = abi.decode(thawMessage.sender, (address));
+        // only accept messages from the target facilitator
+        if (sender != targetFacilitatorAddress) revert InvalidSender(thawId, sender, targetFacilitatorAddress);
+        (address to, uint256 amount) = abi.decode(thawMessage.data, (address, uint256));
+        gho.safeTransfer(to, amount);
 
         emit Thaw(to, amount, thawId);
     }
