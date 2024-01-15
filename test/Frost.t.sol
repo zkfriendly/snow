@@ -81,6 +81,6 @@ contract FrostTest is Test {
         emit Frost.Burn(to, amount, keccak256("thaw"));
 
         vm.prank(from);
-        frost.thaw(to, amount);
+        frost.burn(to, amount);
     }
 }

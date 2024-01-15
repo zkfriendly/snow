@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 /// @title Frost: GHO Portal Facilitator using Chainlink CCIP
+/// @author @zkfriendly
 /// @notice Frost contract is a GHO Facilitator that lives on the target chain
 /// Frost receives CCIP messages from the source chain, and mints GHO tokens on the target chain accordingly.
 /// Frost can also burn GHO tokens on the target chain, and send a CCIP message to the source chain
@@ -50,23 +51,27 @@ contract Frost is CCIPReceiver {
     /// @param _to address to receive GHO on the source chain
     /// @param _amount amount of GHO to be burned on the target chain and released on the source chain
     function burn(address _to, uint256 _amount) external returns (bytes32 thawId) {
-        Client.EVM2AnyMessage memory thawSignal = Client.EVM2AnyMessage({
+        IERC20 _feeToken = feeToken;
+        uint64 _sourceChainId = sourceChainId;
+        IGhoToken _gho = gho;
+
+        Client.EVM2AnyMessage memory burnMessage = Client.EVM2AnyMessage({
             receiver: abi.encode(snow),
             data: abi.encode(_to, _amount),
             tokenAmounts: new Client.EVMTokenAmount[](0),
             extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 200_000})),
-            feeToken: address(feeToken)
+            feeToken: address(_feeToken)
         });
 
-        uint256 ccipFees = router.getFee(sourceChainId, thawSignal);
-        if (ccipFees > feeToken.balanceOf(address(this))) {
-            revert NotEnoughBalance(feeToken.balanceOf(address(this)), ccipFees);
+        uint256 ccipFees = router.getFee(_sourceChainId, burnMessage);
+        if (ccipFees > _feeToken.balanceOf(address(this))) {
+            revert NotEnoughBalance(_feeToken.balanceOf(address(this)), ccipFees);
         }
-        IERC20(feeToken).approve(address(router), ccipFees);
-        thawId = router.ccipSend(sourceChainId, thawSignal);
+        IERC20(_feeToken).approve(address(router), ccipFees);
+        thawId = router.ccipSend(_sourceChainId, burnMessage);
         // transfer GHO to this contract and burn it
-        IERC20(gho).safeTransferFrom(msg.sender, address(this), _amount);
-        gho.burn(_amount);
+        IERC20(_gho).safeTransferFrom(msg.sender, address(this), _amount);
+        _gho.burn(_amount);
 
         emit Burn(_to, _amount, thawId);
     }
