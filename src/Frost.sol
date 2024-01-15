@@ -1,4 +1,11 @@
 // SPDX-License-Identifier: MIT
+
+/// @title Frost: GHO Portal Facilitator using Chainlink CCIP
+/// @notice Frost contract is a GHO Facilitator that lives on the target chain
+/// Frost receives CCIP messages from the source chain, and mints GHO tokens on the target chain accordingly.
+/// Frost can also burn GHO tokens on the target chain, and send a CCIP message to the source chain
+/// to unlock the same amount of GHO tokens.
+
 pragma solidity ^0.8.13;
 
 import {IRouterClient} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
@@ -8,18 +15,17 @@ import {IGhoToken} from "./interfaces/IGhoToken.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "forge-std/Test.sol";
-
 contract Frost is CCIPReceiver {
     using SafeERC20 for IERC20;
 
-    IGhoToken public immutable GHO; // GHO token address
-    IRouterClient public immutable ROUTER; // chainlink router address
-    uint64 public immutable SOURCE_CHAIN_ID; // source chain id (where collateral is locked)
-    address public immutable SNOW; // snow address on the source chain
-    IERC20 public immutable FEE_TOKEN; // (LINK, WETH) token address
+    IGhoToken public immutable gho;
+    IRouterClient public immutable router; // chainlink router address
+    uint64 public immutable sourceChainId; // chainlink specific chain id
+    address public immutable snow; // receives CCIP messages fromt this contract on the source chain
+    IERC20 public immutable feeToken; // token used to pay for CCIP fees
 
-    event Thaw(address indexed to, uint256 amount, bytes32 thawId);
+    event Mint(address indexed to, uint256 amount, bytes32 frostId); // GHO locked on mainnet, GHO minted on target chain
+    event Burn(address indexed to, uint256 amount, bytes32 thawId); // GHO burned on target chain, GHO unlocked on mainnet
 
     error InvalidSender(bytes32 messageId, address sender, address expectedSender);
     error NotEnoughBalance(uint256 balance, uint256 required);
@@ -33,50 +39,47 @@ contract Frost is CCIPReceiver {
     constructor(address _gho, address _router, address _snow, address _feeToken, uint64 _sourceChainId)
         CCIPReceiver(_router)
     {
-        GHO = IGhoToken(_gho);
-        ROUTER = IRouterClient(_router);
-        SOURCE_CHAIN_ID = _sourceChainId;
-        SNOW = _snow;
-        FEE_TOKEN = IERC20(_feeToken);
+        gho = IGhoToken(_gho);
+        router = IRouterClient(_router);
+        snow = _snow;
+        feeToken = IERC20(_feeToken);
+        sourceChainId = _sourceChainId;
     }
 
-    function thaw(address _to, uint256 _amount) external returns (bytes32 thawId) {
-        // Create an EVM2AnyMessage struct in memory with necessary information for sending a cross-chain message
+    /// @notice takes in GHO and burns it, then sends a CCIP message to the source chain
+    /// @param _to address to receive GHO on the source chain
+    /// @param _amount amount of GHO to be burned on the target chain and released on the source chain
+    function burn(address _to, uint256 _amount) external returns (bytes32 thawId) {
         Client.EVM2AnyMessage memory thawSignal = Client.EVM2AnyMessage({
-            receiver: abi.encode(SNOW), // ABI-encoded receiver address
-            data: abi.encode(_to, _amount), // ABI-encoded string
-            tokenAmounts: new Client.EVMTokenAmount[](0), // Empty array indicating no tokens are being sent
-            extraArgs: Client._argsToBytes(
-                // Additional arguments, setting gas limit
-                Client.EVMExtraArgsV1({gasLimit: 200_000})
-                ),
-            // Set the feeToken  address, indicating LINK will be used for fees
-            feeToken: address(FEE_TOKEN)
+            receiver: abi.encode(snow),
+            data: abi.encode(_to, _amount),
+            tokenAmounts: new Client.EVMTokenAmount[](0),
+            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 200_000})),
+            feeToken: address(feeToken)
         });
 
-        // calculate and approve cross-chain transaction fee
-        uint256 fee = ROUTER.getFee(SOURCE_CHAIN_ID, thawSignal);
-        if (FEE_TOKEN.balanceOf(address(this)) < fee) revert NotEnoughBalance(FEE_TOKEN.balanceOf(address(this)), fee);
-        IERC20(FEE_TOKEN).approve(address(ROUTER), fee);
-
-        // send cross-chain message
-        thawId = ROUTER.ccipSend(SOURCE_CHAIN_ID, thawSignal);
-
+        uint256 ccipFees = router.getFee(sourceChainId, thawSignal);
+        if (ccipFees > feeToken.balanceOf(address(this))) {
+            revert NotEnoughBalance(feeToken.balanceOf(address(this)), ccipFees);
+        }
+        IERC20(feeToken).approve(address(router), ccipFees);
+        thawId = router.ccipSend(sourceChainId, thawSignal);
         // transfer GHO to this contract and burn it
-        IERC20(GHO).safeTransferFrom(msg.sender, address(this), _amount);
-        GHO.burn(_amount);
+        IERC20(gho).safeTransferFrom(msg.sender, address(this), _amount);
+        gho.burn(_amount);
 
-        emit Thaw(_to, _amount, thawId);
+        emit Burn(_to, _amount, thawId);
     }
 
-    /// @notice mint GHO upon receiving a cross-chain message
-    /// @param _frostSignal cross-chain message
-    function _ccipReceive(Client.Any2EVMMessage memory _frostSignal) internal override {
-        address sender = abi.decode(_frostSignal.sender, (address));
-
-        if (sender != SNOW) revert InvalidSender(_frostSignal.messageId, sender, SNOW);
-
-        (address to, uint256 amount) = abi.decode(_frostSignal.data, (address, uint256));
-        GHO.mint(to, amount);
+    /// @notice Whenever the source chain facilitator locks GHO tokens on the source chain,
+    /// Frost receives a CCIP message, and mints GHO tokens on the target chain.
+    /// @param _frostMessage cross-chain message
+    function _ccipReceive(Client.Any2EVMMessage memory _frostMessage) internal override {
+        address sender = abi.decode(_frostMessage.sender, (address));
+        // only accept messages from the snow contract
+        if (sender != snow) revert InvalidSender(_frostMessage.messageId, sender, snow);
+        (address to, uint256 amount) = abi.decode(_frostMessage.data, (address, uint256));
+        gho.mint(to, amount);
+        emit Mint(to, amount, _frostMessage.messageId);
     }
 }

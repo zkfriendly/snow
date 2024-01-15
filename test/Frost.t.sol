@@ -24,11 +24,11 @@ contract FrostTest is Test {
     }
 
     function test_Setup() public {
-        assertEq(address(frost.GHO()), address(ghoToken));
-        assertEq(address(frost.ROUTER()), router);
-        assertEq(frost.SOURCE_CHAIN_ID(), sourceChainId);
-        assertEq(address(frost.FEE_TOKEN()), linkToken);
-        assertEq(address(frost.SNOW()), snow);
+        assertEq(address(frost.gho()), address(ghoToken));
+        assertEq(address(frost.router()), router);
+        assertEq(frost.sourceChainId(), sourceChainId);
+        assertEq(address(frost.feeToken()), linkToken);
+        assertEq(address(frost.snow()), snow);
     }
 
     function testFuzz_MintGho(address alice, uint256 amount) public {
@@ -78,7 +78,7 @@ contract FrostTest is Test {
         );
         vm.expectCall(address(ghoToken), abi.encodeWithSelector(IGhoToken.burn.selector, amount));
         vm.expectEmit(address(frost));
-        emit Frost.Thaw(to, amount, keccak256("thaw"));
+        emit Frost.Burn(to, amount, keccak256("thaw"));
 
         vm.prank(from);
         frost.thaw(to, amount);
