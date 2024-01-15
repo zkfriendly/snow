@@ -62,6 +62,7 @@ contract Snow is CCIPReceiver {
     function frost(address _to, uint256 _amount) external returns (bytes32 frostId) {
         IERC20 _feeToken = feeToken;
         uint64 _targetChainId = targetChainId;
+        IRouterClient _router = router;
 
         Client.EVM2AnyMessage memory frostMessage = Client.EVM2AnyMessage({
             receiver: abi.encode(targetFacilitatorAddress),
@@ -71,12 +72,12 @@ contract Snow is CCIPReceiver {
             feeToken: address(_feeToken)
         });
 
-        uint256 ccipFees = router.getFee(_targetChainId, frostMessage);
+        uint256 ccipFees = _router.getFee(_targetChainId, frostMessage);
         if (ccipFees > _feeToken.balanceOf(address(this))) {
             revert NotEnoughBalance(_feeToken.balanceOf(address(this)), ccipFees);
         }
-        _feeToken.approve(address(router), ccipFees); // allow chainlink router to take fees
-        frostId = router.ccipSend(_targetChainId, frostMessage);
+        _feeToken.approve(address(_router), ccipFees); // allow chainlink router to take fees
+        frostId = _router.ccipSend(_targetChainId, frostMessage);
         gho.safeTransferFrom(msg.sender, address(this), _amount); // lock GHO on mainnet
 
         emit Frost(_to, _amount, frostId);

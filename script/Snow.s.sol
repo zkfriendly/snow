@@ -15,9 +15,7 @@ contract SnowSepoliaDeployer is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
-        vm.startBroadcast(deployerPrivateKey);
-        Snow snow = new Snow(ghoToken, linkToken, router, targetChainId);
-        console2(address(snow));
-        vm.stopBroadcast();
+        vm.broadcast(deployerPrivateKey);
+        new Snow(ghoToken, linkToken, router, targetChainId);
     }
 }

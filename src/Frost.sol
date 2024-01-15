@@ -50,10 +50,11 @@ contract Frost is CCIPReceiver {
     /// @notice takes in GHO and burns it, then sends a CCIP message to the source chain
     /// @param _to address to receive GHO on the source chain
     /// @param _amount amount of GHO to be burned on the target chain and released on the source chain
-    function burn(address _to, uint256 _amount) external returns (bytes32 thawId) {
+    function burn(address _to, uint256 _amount) external returns (bytes32 burnId) {
         IERC20 _feeToken = feeToken;
         uint64 _sourceChainId = sourceChainId;
         IGhoToken _gho = gho;
+        IRouterClient _router = router;
 
         Client.EVM2AnyMessage memory burnMessage = Client.EVM2AnyMessage({
             receiver: abi.encode(snow),
@@ -63,17 +64,17 @@ contract Frost is CCIPReceiver {
             feeToken: address(_feeToken)
         });
 
-        uint256 ccipFees = router.getFee(_sourceChainId, burnMessage);
+        uint256 ccipFees = _router.getFee(_sourceChainId, burnMessage);
         if (ccipFees > _feeToken.balanceOf(address(this))) {
             revert NotEnoughBalance(_feeToken.balanceOf(address(this)), ccipFees);
         }
-        IERC20(_feeToken).approve(address(router), ccipFees);
-        thawId = router.ccipSend(_sourceChainId, burnMessage);
+        _feeToken.approve(address(_router), ccipFees);
+        burnId = _router.ccipSend(_sourceChainId, burnMessage);
         // transfer GHO to this contract and burn it
         IERC20(_gho).safeTransferFrom(msg.sender, address(this), _amount);
         _gho.burn(_amount);
 
-        emit Burn(_to, _amount, thawId);
+        emit Burn(_to, _amount, burnId);
     }
 
     /// @notice Whenever the source chain facilitator locks GHO tokens on the source chain,
