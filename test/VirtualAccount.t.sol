@@ -55,13 +55,26 @@ contract AccountTest is Test {
 
     function test_supplyCollateral() public {
         _deposit(wEth, 100);
-        _supply(wEth, 20);
+        _supplyCollateral(wEth, 20);
     }
 
     function test_supllyDecreasesBalance() public {
         _deposit(wEth, 100);
-        _supply(wEth, 20);
+        _supplyCollateral(wEth, 20);
         assertEq(account.balanceOf(wEth), 80);
+    }
+
+    function test_removeCollateral() public {
+        _deposit(wEth, 100);
+        _supplyCollateral(wEth, 20);
+        _removeCollateral(wEth, 10);
+    }
+
+    function test_removeCollateralIncreasesBalance() public {
+        _deposit(wEth, 100);
+        _supplyCollateral(wEth, 20);
+        _removeCollateral(wEth, 10);
+        assertEq(account.balanceOf(wEth), 90);
     }
 
     function _deposit(address _token, uint256 _amount) internal {
@@ -86,7 +99,7 @@ contract AccountTest is Test {
         account.withdraw(address(_token), _to, _amount);
     }
 
-    function _supply(address _token, uint256 _amount) internal {
+    function _supplyCollateral(address _token, uint256 _amount) internal {
         bytes memory _call = abi.encodeWithSelector(IPool.supply.selector, wEth, _amount, address(account), 0);
 
         vm.mockCall(pool, _call, abi.encode(true));
@@ -94,5 +107,15 @@ contract AccountTest is Test {
 
         vm.prank(onBehalfOf);
         account.supplyAsCollateral(_token, _amount);
+    }
+
+    function _removeCollateral(address _token, uint256 _amount) internal {
+        bytes memory _call = abi.encodeWithSelector(IPool.withdraw.selector, wEth, _amount, address(account));
+
+        vm.mockCall(pool, _call, abi.encode(true));
+        vm.expectCall(pool, _call);
+
+        vm.prank(onBehalfOf);
+        account.removeCollateral(_token, _amount);
     }
 }
