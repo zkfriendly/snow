@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-/// @title Snow: GHO Portal Using Chainlink CCIP
+/// @title GhoBox: GHO Portal Using Chainlink CCIP
 /// @author @zkfriendly
-/// @notice Snow contract lives on mainnet along side AAVE GHO Facilitator
-/// Snow can receive any amount of GHO tokens on mainnet, lock them,
-/// and then send a cross-chain attestation using CCIP, attesting to the amount of GHO locked on mainnet.
-/// the IFrostn is later used by the GHO Facilitator living on the target chain to mint GHO tokens on that chain.
-/// **thIFrosta Frost: lock GHO on mainnet, get GHO on target chain.**
-/// In aIFrostnow can receive burn attestations using CCIP from the GHO Facilitator on the target chain, and release the same amount of GHO tokens on mainnet.
-/// **this called a Thaw: burn GHO on target chain, get GHO on mainnet.**
+/// @notice The GhoBox contract exists on the mainnet. It can receive or borrow GHO through credit delegation and lock it.
+/// A CCIP message is then sent to a facilitator on target chain, where GHO is minted.
+/// @dev This contract is a work in progress and has not yet been audited.
 
 pragma solidity ^0.8.13;
 
@@ -19,7 +15,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Client} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/libraries/Client.sol";
 import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/applications/CCIPReceiver.sol";
 
-contract Snow is CCIPReceiver {
+contract GhoBox is CCIPReceiver {
     using SafeERC20 for IERC20;
 
     enum Op {
@@ -33,15 +29,15 @@ contract Snow is CCIPReceiver {
     IRouterClient public immutable router; // chainlink router address
     address public targetFacilitatorAddress;
 
-    event Frost(address indexed to, uint256 amount, bytes32 forgeId); // GHO locked on mainnet, GHO minted on target chain
-    event Thaw(address indexed to, uint256 amount, bytes32 forgeId); // GHO burned on target chain, GHO unlocked on mainnet
+    event Mint(address indexed to, uint256 amount, bytes32 ccipId); // GHO locked on mainnet, GHO minted on target chain
+    event Burn(address indexed to, uint256 amount, bytes32 ccipId); // GHO burned on target chain, GHO unlocked on mainnet
 
     error NotEnoughBalance(uint256 balance, uint256 required);
     error FacilitatorAlreadySet(address facilitator);
     error InvalidSender(bytes32 messageId, address sender, address expectedSender);
     error InvalidOp();
 
-    /// @notice initialize Snow contract
+    /// @notice construct contract
     /// @param _gho GHO token address
     /// @param _link we are choosing LINK as the fee token
     /// @param _router chainlink router address
@@ -64,35 +60,34 @@ contract Snow is CCIPReceiver {
     /// @notice takes in GHO and locks it, then sends a CCIP message to the target chain
     /// @param _to address to receive GHO on the target chain
     /// @param _amount amount of GHO to be locked on mainnet and minted on the target chain
-    function frost(address _to, uint256 _amount) external returns (bytes32 frostId) {
-        frostId = _frost(_to, _amount);
+    function sendMintMessage(address _to, uint256 _amount) external returns (bytes32 ccipId) {
+        ccipId = _sendMintMessage(_to, _amount);
         gho.safeTransferFrom(msg.sender, address(this), _amount); // lock GHO on mainnet
-
-        emit Frost(_to, _amount, frostId);
+        emit Mint(_to, _amount, ccipId);
     }
 
     /// @notice sends a CCIP message to the target chain to mint GHO tokens
     /// @param _to recipient address on the target chain
     /// @param _amount amount of GHO to be minted on the target chain
-    function _frost(address _to, uint256 _amount) internal returns (bytes32 frostId) {
+    function _sendMintMessage(address _to, uint256 _amount) internal returns (bytes32 ccipId) {
         IERC20 _feeToken = feeToken;
         uint64 _targetChainId = targetChainId;
         IRouterClient _router = router;
 
-        Client.EVM2AnyMessage memory frostMessage = Client.EVM2AnyMessage({
+        Client.EVM2AnyMessage memory mintMessage = Client.EVM2AnyMessage({
             receiver: abi.encode(targetFacilitatorAddress),
-            data: abi.encode(_to, _amount),
+            data: abi.encode(Op.MINT, abi.encode(_to, _amount)),
             tokenAmounts: new Client.EVMTokenAmount[](0),
             extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 200_000})),
             feeToken: address(_feeToken)
         });
 
-        uint256 ccipFees = _router.getFee(_targetChainId, frostMessage);
+        uint256 ccipFees = _router.getFee(_targetChainId, mintMessage);
         if (ccipFees > _feeToken.balanceOf(address(this))) {
             revert NotEnoughBalance(_feeToken.balanceOf(address(this)), ccipFees);
         }
         _feeToken.approve(address(_router), ccipFees); // allow chainlink router to take fees
-        frostId = _router.ccipSend(_targetChainId, frostMessage);
+        ccipId = _router.ccipSend(_targetChainId, mintMessage);
     }
 
     /// @notice dispatches incoming CCIP messages to the appropriate handler
@@ -119,6 +114,6 @@ contract Snow is CCIPReceiver {
         (to, amount) = abi.decode(burnMessage.data, (address, uint256));
         burnId = burnMessage.messageId;
         gho.safeTransfer(to, amount);
-        emit Thaw(to, amount, burnId);
+        emit Burn(to, amount, burnId);
     }
 }
