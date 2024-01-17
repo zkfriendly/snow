@@ -6,6 +6,8 @@ import {GhoBox} from "../src/GhoBox.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRouterClient} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
 import {Client} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/libraries/Client.sol";
+import {IFacilitatorOp} from "../src/interfaces/IFacilitatorOp.sol";
+import {IGhoToken} from "../src/interfaces/IGhoToken.sol";
 
 contract GhoBoxTest is Test {
     GhoBox public box;
@@ -14,6 +16,7 @@ contract GhoBoxTest is Test {
     address public facilitator = address(3);
     address public router = address(4);
     uint64 public targetChainId = 2;
+    uint64 public sourceChainId = 3;
 
     function setUp() public {
         box = new GhoBox(ghoToken, linkToken, router, targetChainId);
@@ -26,10 +29,26 @@ contract GhoBoxTest is Test {
         assertEq(box.targetChainId(), targetChainId);
     }
 
-    function testFuzz_Frost(address alice, uint256 amount) public {
+    function testFuzz_ReleaseGho(address alice, uint256 amount) public {
+        vm.assume(alice != address(0));
+        Client.Any2EVMMessage memory burn = Client.Any2EVMMessage({
+            messageId: keccak256("burnMessage"),
+            sourceChainSelector: sourceChainId,
+            sender: abi.encode(facilitator),
+            data: abi.encode(IFacilitatorOp.Op.BURN, abi.encode(alice, amount)),
+            destTokenAmounts: new Client.EVMTokenAmount[](0)
+        });
+
+        vm.mockCall(ghoToken, abi.encodeWithSelector(IERC20.transfer.selector, alice, amount), abi.encode(true));
+        vm.expectCall(address(ghoToken), abi.encodeWithSelector(IERC20.transfer.selector, alice, amount));
+        vm.prank(router);
+        box.ccipReceive(burn);
+    }
+
+    function testFuzz_MintGho(address alice, uint256 amount) public {
         Client.EVM2AnyMessage memory mintMessage = Client.EVM2AnyMessage({
             receiver: abi.encode(facilitator), // ABI-encoded receiver address
-            data: abi.encode(GhoBox.Op.MINT, abi.encode(alice, amount)), // ABI-encoded string
+            data: abi.encode(IFacilitatorOp.Op.MINT, abi.encode(alice, amount)), // ABI-encoded string
             tokenAmounts: new Client.EVMTokenAmount[](0), // Empty array indicating no tokens are being sent
             extraArgs: Client._argsToBytes(
                 // Additional arguments, setting gas limit

@@ -14,14 +14,10 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Client} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/libraries/Client.sol";
 import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/applications/CCIPReceiver.sol";
+import {IFacilitatorOp} from "./interfaces/IFacilitatorOp.sol";
 
-contract GhoBox is CCIPReceiver {
+contract GhoBox is IFacilitatorOp, CCIPReceiver {
     using SafeERC20 for IERC20;
-
-    enum Op {
-        BURN,
-        MINT
-    }
 
     IERC20 public immutable gho;
     IERC20 public immutable feeToken; // token used to pay for CCIP fees
@@ -35,7 +31,6 @@ contract GhoBox is CCIPReceiver {
     error NotEnoughBalance(uint256 balance, uint256 required);
     error FacilitatorAlreadySet(address facilitator);
     error InvalidSender(bytes32 messageId, address sender, address expectedSender);
-    error InvalidOp();
 
     /// @notice construct contract
     /// @param _gho GHO token address
@@ -91,10 +86,10 @@ contract GhoBox is CCIPReceiver {
     }
 
     /// @notice dispatches incoming CCIP messages to the appropriate handler
-    /// @param incomingMessage CCIP messages received from the outside world through the chainlink router
-    function _ccipReceive(Client.Any2EVMMessage memory incomingMessage) internal override {
-        (Op op,) = abi.decode(incomingMessage.data, (Op, bytes)); // gas ??
-        if (op == Op.BURN) _handleBurnMessage(incomingMessage);
+    /// @param _incomingMessage CCIP messages received from the outside world through the chainlink router
+    function _ccipReceive(Client.Any2EVMMessage memory _incomingMessage) internal override {
+        (Op op,) = abi.decode(_incomingMessage.data, (Op, bytes)); // gas ??
+        if (op == Op.BURN) _handleBurnMessage(_incomingMessage);
         else revert InvalidOp();
     }
 
@@ -102,18 +97,15 @@ contract GhoBox is CCIPReceiver {
     /// it sends a CCIP message to this contract, with the amount of GHO burned, and a recipient address on mainnet.
     /// it then releases the same amount of GHO tokens here (mainnet) to the recipient address.
     /// @param burnMessage CCIP message sent by the target chain facilitator through the chainlink router
-    function _handleBurnMessage(Client.Any2EVMMessage memory burnMessage)
-        internal
-        returns (address to, uint256 amount, bytes32 burnId)
-    {
+    function _handleBurnMessage(Client.Any2EVMMessage memory burnMessage) internal {
         address sender = abi.decode(burnMessage.sender, (address));
         // only accept messages from the target facilitator
         if (sender != targetFacilitatorAddress) {
             revert InvalidSender(burnMessage.messageId, sender, targetFacilitatorAddress);
         }
-        (to, amount) = abi.decode(burnMessage.data, (address, uint256));
-        burnId = burnMessage.messageId;
+        (, bytes memory rawData) = abi.decode(burnMessage.data, (Op, bytes));
+        (address to, uint256 amount) = abi.decode(rawData, (address, uint256));
         gho.safeTransfer(to, amount);
-        emit Burn(to, amount, burnId);
+        emit Burn(to, amount, burnMessage.messageId);
     }
 }
