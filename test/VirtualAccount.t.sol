@@ -6,6 +6,7 @@ import {VirtualAccount} from "../src/VirtualAccount.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Create2} from "../src/Create2.sol";
 import {IPool} from "@aave/v3/core/contracts/interfaces/IPool.sol";
+import {ICreditDelegationToken} from "@aave/v3/core/contracts/interfaces/ICreditDelegationToken.sol";
 
 contract AccountTest is Test {
     VirtualAccount account;
@@ -14,6 +15,7 @@ contract AccountTest is Test {
     address wEth = address(2);
     address dai = address(3);
     address pool = address(4);
+    address debtAsset = address(5);
 
     function setUp() public {
         account = new VirtualAccount(pool, onBehalfOf, address(0), 0);
@@ -75,6 +77,17 @@ contract AccountTest is Test {
         _supplyCollateral(wEth, 20);
         _removeCollateral(wEth, 10);
         assertEq(account.balanceOf(wEth), 90);
+    }
+
+    function test_delegatesCredit() public {
+        bytes memory _call =
+            abi.encodeWithSelector(ICreditDelegationToken.approveDelegation.selector, address(this), 200);
+
+        vm.mockCall(debtAsset, _call, abi.encode(true));
+        vm.expectCall(debtAsset, _call);
+
+        vm.prank(onBehalfOf);
+        account.approveDelegation(debtAsset, address(this), 200);
     }
 
     function _deposit(address _token, uint256 _amount) internal {

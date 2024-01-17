@@ -6,6 +6,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IPool} from "@aave/v3/core/contracts/interfaces/IPool.sol";
+import {ICreditDelegationToken} from "@aave/v3/core/contracts/interfaces/ICreditDelegationToken.sol";
 
 import "forge-std/Test.sol";
 
@@ -34,6 +35,10 @@ contract VirtualAccount is Ownable {
 
     function removeCollateral(address _token, uint256 _amount) external only(onBehalfOf) {
         _removeCollateral(_token, _amount);
+    }
+
+    function approveDelegation(address debtAsset, address _delegatee, uint256 _amount) external only(onBehalfOf) {
+        ICreditDelegationToken(debtAsset).approveDelegation(_delegatee, _amount);
     }
 
     function deposit(address _token, uint256 _amount) public {
