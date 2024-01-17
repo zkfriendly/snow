@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import {VirtualAccount} from "../src/VirtualAccount.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Create2} from "../src/Create2.sol";
+import {IPool} from "@aave/v3/core/contracts/interfaces/IPool.sol";
 
 contract AccountTest is Test {
     VirtualAccount account;
@@ -12,9 +13,10 @@ contract AccountTest is Test {
     address onBehalfOf = address(1);
     address wEth = address(2);
     address dai = address(3);
+    address pool = address(4);
 
     function setUp() public {
-        account = new VirtualAccount(onBehalfOf, address(0), 0);
+        account = new VirtualAccount(pool, onBehalfOf, address(0), 0);
     }
 
     function test_setUp() public {
@@ -45,10 +47,21 @@ contract AccountTest is Test {
     function test_hasInitialTransfer() public {
         vm.mockCall(dai, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
         vm.expectCall(dai, abi.encodeWithSelector(IERC20.transferFrom.selector));
-        account = new VirtualAccount(onBehalfOf, dai, 100);
+        account = new VirtualAccount(pool, onBehalfOf, dai, 100);
 
         assertEq(account.balanceOf(dai), 100);
         assertEq(account.balanceOf(wEth), 0);
+    }
+
+    function test_supplyCollateral() public {
+        _deposit(wEth, 100);
+        _supply(wEth, 20);
+    }
+
+    function test_supllyDecreasesBalance() public {
+        _deposit(wEth, 100);
+        _supply(wEth, 20);
+        assertEq(account.balanceOf(wEth), 80);
     }
 
     function _deposit(address _token, uint256 _amount) internal {
@@ -69,6 +82,17 @@ contract AccountTest is Test {
         vm.mockCall(address(_token), abi.encodeWithSelector(IERC20.transfer.selector, _to, _amount), abi.encode(true));
         vm.expectCall(address(_token), abi.encodeWithSelector(IERC20.transfer.selector, _to, _amount));
 
+        vm.prank(onBehalfOf);
         account.withdraw(address(_token), _to, _amount);
+    }
+
+    function _supply(address _token, uint256 _amount) internal {
+        bytes memory _call = abi.encodeWithSelector(IPool.supply.selector, wEth, _amount, address(account), 0);
+
+        vm.mockCall(pool, _call, abi.encode(true));
+        vm.expectCall(pool, _call);
+
+        vm.prank(onBehalfOf);
+        account.supplyAsCollateral(_token, _amount);
     }
 }
