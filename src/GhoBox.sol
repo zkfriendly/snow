@@ -15,11 +15,13 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Client} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/libraries/Client.sol";
 import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/applications/CCIPReceiver.sol";
 import {IFacilitatorOp} from "./interfaces/IFacilitatorOp.sol";
+import {IPool} from "@aave/v3/core/contracts/interfaces/IPool.sol";
 
 contract GhoBox is IFacilitatorOp, CCIPReceiver {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable gho;
+    IPool public immutable pool; // aave v3 pool address
     IERC20 public immutable feeToken; // token used to pay for CCIP fees
     uint64 public immutable targetChainId; // chainlink specific chain id
     IRouterClient public immutable router; // chainlink router address
@@ -34,11 +36,15 @@ contract GhoBox is IFacilitatorOp, CCIPReceiver {
 
     /// @notice construct contract
     /// @param _gho GHO token address
+    /// @param _pool aave v3 pool address
     /// @param _link we are choosing LINK as the fee token
     /// @param _router chainlink router address
     /// @param _targetChainId target chain id (where GHO is minted)
-    constructor(address _gho, address _link, address _router, uint64 _targetChainId) CCIPReceiver(_router) {
+    constructor(address _gho, address _pool, address _link, address _router, uint64 _targetChainId)
+        CCIPReceiver(_router)
+    {
         gho = IERC20(_gho);
+        pool = IPool(_pool);
         feeToken = IERC20(_link);
         targetChainId = _targetChainId;
         router = IRouterClient(_router);
@@ -55,9 +61,18 @@ contract GhoBox is IFacilitatorOp, CCIPReceiver {
     /// @notice takes in GHO and locks it, then sends a CCIP message to the target chain
     /// @param _to address to receive GHO on the target chain
     /// @param _amount amount of GHO to be locked on mainnet and minted on the target chain
-    function sendMintMessage(address _to, uint256 _amount) external returns (bytes32 ccipId) {
+    function lockAndMint(address _to, uint256 _amount) external returns (bytes32 ccipId) {
         ccipId = _sendMintMessage(_to, _amount);
         gho.safeTransferFrom(msg.sender, address(this), _amount); // lock GHO on mainnet
+        emit Mint(_to, _amount, ccipId);
+    }
+
+    /// @notice borrows GHO on behalf of the user and sends a CCIP message to the target chain
+    /// @param _to address to receive GHO on the target chain
+    /// @param _amount amount of GHO to be borrowed on mainnet and minted on the target chain
+    function borrowAndMint(address _to, uint256 _amount) external returns (bytes32 ccipId) {
+        ccipId = _sendMintMessage(_to, _amount);
+        pool.borrow(address(gho), _amount, 2, 0, msg.sender); // lock GHO on mainnet
         emit Mint(_to, _amount, ccipId);
     }
 
@@ -85,14 +100,6 @@ contract GhoBox is IFacilitatorOp, CCIPReceiver {
         ccipId = _router.ccipSend(_targetChainId, mintMessage);
     }
 
-    /// @notice dispatches incoming CCIP messages to the appropriate handler
-    /// @param _incomingMessage CCIP messages received from the outside world through the chainlink router
-    function _ccipReceive(Client.Any2EVMMessage memory _incomingMessage) internal override {
-        (Op op,) = abi.decode(_incomingMessage.data, (Op, bytes)); // gas ??
-        if (op == Op.BURN) _handleBurnMessage(_incomingMessage);
-        else revert InvalidOp();
-    }
-
     /// @notice Whenever the target chain facilitator burns GHO tokens on the target chain,
     /// it sends a CCIP message to this contract, with the amount of GHO burned, and a recipient address on mainnet.
     /// it then releases the same amount of GHO tokens here (mainnet) to the recipient address.
@@ -107,5 +114,13 @@ contract GhoBox is IFacilitatorOp, CCIPReceiver {
         (address to, uint256 amount) = abi.decode(rawData, (address, uint256));
         gho.safeTransfer(to, amount);
         emit Burn(to, amount, burnMessage.messageId);
+    }
+
+    /// @notice dispatches incoming CCIP messages to the appropriate handler
+    /// @param _incomingMessage CCIP messages received from the outside world through the chainlink router
+    function _ccipReceive(Client.Any2EVMMessage memory _incomingMessage) internal override {
+        (Op op,) = abi.decode(_incomingMessage.data, (Op, bytes)); // gas ??
+        if (op == Op.BURN) _handleBurnMessage(_incomingMessage);
+        else revert InvalidOp();
     }
 }

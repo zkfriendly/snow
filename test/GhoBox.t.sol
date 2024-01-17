@@ -15,11 +15,12 @@ contract GhoBoxTest is Test {
     address public linkToken = address(2);
     address public facilitator = address(3);
     address public router = address(4);
+    address public pool = address(5);
     uint64 public targetChainId = 2;
     uint64 public sourceChainId = 3;
 
     function setUp() public {
-        box = new GhoBox(ghoToken, linkToken, router, targetChainId);
+        box = new GhoBox(ghoToken, pool, linkToken, router, targetChainId);
         box.initialize(facilitator);
     }
 
@@ -76,6 +77,6 @@ contract GhoBoxTest is Test {
         vm.expectEmit(address(box));
         emit GhoBox.Mint(alice, amount, keccak256("forge"));
         vm.prank(alice);
-        box.sendMintMessage(alice, amount);
+        box.lockAndMint(alice, amount);
     }
 }
