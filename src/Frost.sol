@@ -78,14 +78,18 @@ contract Frost is CCIPReceiver {
     }
 
     /// @notice Whenever the source chain facilitator locks GHO tokens on the source chain,
-    /// Frost receives a CCIP message, and mints GHO tokens on the target chain.
-    /// @param _frostMessage cross-chain message
-    function _ccipReceive(Client.Any2EVMMessage memory _frostMessage) internal override {
-        address sender = abi.decode(_frostMessage.sender, (address));
+    /// Frost receives a CCIP message, and mints GHO tokens here (target chain).
+    /// @param _mintMessage cross-chain message
+    function _ccipReceive(Client.Any2EVMMessage memory _mintMessage) internal override {
+        _handleMintMessage(_mintMessage);
+    }
+
+    function _handleMintMessage(Client.Any2EVMMessage memory _mintMessage) internal {
+        address sender = abi.decode(_mintMessage.sender, (address));
         // only accept messages from the snow contract
-        if (sender != snow) revert InvalidSender(_frostMessage.messageId, sender, snow);
-        (address to, uint256 amount) = abi.decode(_frostMessage.data, (address, uint256));
+        if (sender != snow) revert InvalidSender(_mintMessage.messageId, sender, snow);
+        (address to, uint256 amount) = abi.decode(_mintMessage.data, (address, uint256));
         gho.mint(to, amount);
-        emit Mint(to, amount, _frostMessage.messageId);
+        emit Mint(to, amount, _mintMessage.messageId);
     }
 }

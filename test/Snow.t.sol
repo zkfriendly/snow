@@ -17,7 +17,7 @@ contract SnowTest is Test {
 
     function setUp() public {
         snow = new Snow(ghoToken, linkToken, router, targetChainId);
-        snow.setFacilitator(frost);
+        snow.initialize(frost);
     }
 
     function test_Setup() public {

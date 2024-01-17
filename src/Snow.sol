@@ -22,6 +22,11 @@ import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/ap
 contract Snow is CCIPReceiver {
     using SafeERC20 for IERC20;
 
+    enum Op {
+        BURN,
+        MINT
+    }
+
     IERC20 public immutable gho;
     IERC20 public immutable feeToken; // token used to pay for CCIP fees
     uint64 public immutable targetChainId; // chainlink specific chain id
@@ -34,6 +39,7 @@ contract Snow is CCIPReceiver {
     error NotEnoughBalance(uint256 balance, uint256 required);
     error FacilitatorAlreadySet(address facilitator);
     error InvalidSender(bytes32 messageId, address sender, address expectedSender);
+    error InvalidOp();
 
     /// @notice initialize Snow contract
     /// @param _gho GHO token address
@@ -48,18 +54,27 @@ contract Snow is CCIPReceiver {
     }
 
     /// @notice set the target facilitator address
-    /// @param _facilitator address of thIFrostacilitator
-    /// @dev can only be called once.IFrost
-    function setFacilitator(address _facilitator) external {
+    /// @param _facilitator address of the target facilitator
+    /// @dev can only be called once.
+    function initialize(address _facilitator) external {
         if (targetFacilitatorAddress != address(0)) revert FacilitatorAlreadySet(targetFacilitatorAddress);
         targetFacilitatorAddress = _facilitator;
     }
 
-    /// @notice locks `_amount` GHO tokens on mainnet, and then sends a CCIP message
-    /// with `_to` and `_amount` to the target chain
+    /// @notice takes in GHO and locks it, then sends a CCIP message to the target chain
+    /// @param _to address to receive GHO on the target chain
+    /// @param _amount amount of GHO to be locked on mainnet and minted on the target chain
+    function frost(address _to, uint256 _amount) external returns (bytes32 frostId) {
+        frostId = _frost(_to, _amount);
+        gho.safeTransferFrom(msg.sender, address(this), _amount); // lock GHO on mainnet
+
+        emit Frost(_to, _amount, frostId);
+    }
+
+    /// @notice sends a CCIP message to the target chain to mint GHO tokens
     /// @param _to recipient address on the target chain
     /// @param _amount amount of GHO to be minted on the target chain
-    function frost(address _to, uint256 _amount) external returns (bytes32 frostId) {
+    function _frost(address _to, uint256 _amount) internal returns (bytes32 frostId) {
         IERC20 _feeToken = feeToken;
         uint64 _targetChainId = targetChainId;
         IRouterClient _router = router;
@@ -78,23 +93,32 @@ contract Snow is CCIPReceiver {
         }
         _feeToken.approve(address(_router), ccipFees); // allow chainlink router to take fees
         frostId = _router.ccipSend(_targetChainId, frostMessage);
-        gho.safeTransferFrom(msg.sender, address(this), _amount); // lock GHO on mainnet
+    }
 
-        emit Frost(_to, _amount, frostId);
+    /// @notice dispatches incoming CCIP messages to the appropriate handler
+    /// @param incomingMessage CCIP messages received from the outside world through the chainlink router
+    function _ccipReceive(Client.Any2EVMMessage memory incomingMessage) internal override {
+        (Op op,) = abi.decode(incomingMessage.data, (Op, bytes)); // gas ??
+        if (op == Op.BURN) _handleBurnMessage(incomingMessage);
+        else revert InvalidOp();
     }
 
     /// @notice Whenever the target chain facilitator burns GHO tokens on the target chain,
     /// it sends a CCIP message to this contract, with the amount of GHO burned, and a recipient address on mainnet.
-    /// it then releases the same amount of GHO tokens on mainnet to the recipient address.
+    /// it then releases the same amount of GHO tokens here (mainnet) to the recipient address.
     /// @param burnMessage CCIP message sent by the target chain facilitator through the chainlink router
-    function _ccipReceive(Client.Any2EVMMessage memory burnMessage) internal override {
-        bytes32 burnId = burnMessage.messageId;
+    function _handleBurnMessage(Client.Any2EVMMessage memory burnMessage)
+        internal
+        returns (address to, uint256 amount, bytes32 burnId)
+    {
         address sender = abi.decode(burnMessage.sender, (address));
         // only accept messages from the target facilitator
-        if (sender != targetFacilitatorAddress) revert InvalidSender(burnId, sender, targetFacilitatorAddress);
-        (address to, uint256 amount) = abi.decode(burnMessage.data, (address, uint256));
+        if (sender != targetFacilitatorAddress) {
+            revert InvalidSender(burnMessage.messageId, sender, targetFacilitatorAddress);
+        }
+        (to, amount) = abi.decode(burnMessage.data, (address, uint256));
+        burnId = burnMessage.messageId;
         gho.safeTransfer(to, amount);
-
         emit Thaw(to, amount, burnId);
     }
 }
