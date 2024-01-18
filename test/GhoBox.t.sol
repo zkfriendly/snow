@@ -33,9 +33,7 @@ contract GhoBoxTest is Test {
         assertEq(box.targetChainId(), targetChainId);
     }
 
-    function test_borrowAndBurnRef() public {
-        uint256 _amount = 6619;
-        uint32 _ref = 3041954473;
+    function test_borrowAndBurnRef(uint256 _amount, uint32 _ref) public {
         _mockMintMessageCcip(address(this), _amount, _ref);
         _mockGhoIntake(_amount, true);
         _mockAndExpect(
@@ -59,16 +57,7 @@ contract GhoBoxTest is Test {
         box.ccipReceive(_incomingMessage);
     }
 
-    function test_borrowAndBurnRef0(uint256 _amount, bool _isBorrow) public {
-        _mockMintMessageCcip(address(this), _amount, 0);
-        _mockGhoIntake(_amount, _isBorrow);
-        _mockAndExpect(
-            ghoToken,
-            abi.encodeWithSelector(IGhoToken.burn.selector, _amount),
-            abi.encode(true)
-        );
-        box.burnAndRemoteMint(_amount, _isBorrow);
-    }
+    function test_requestBorrow() public {}
 
     function _mockGhoIntake(uint256 _amount, bool _isBorrow) internal {
         if (_isBorrow) {

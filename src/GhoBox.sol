@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-/// @title GhoBox: GHO Portal Using Chainlink CCIP
-/// @author @zkfriendly
-/// @notice The GhoBox contract exists on the mainnet. It can receive or borrow GHO through credit delegation and lock it.
-/// A CCIP message is then sent to a facilitator on target chain, where GHO is minted.
-/// @dev This contract is a work in progress and has not yet been audited.
-
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
@@ -72,14 +66,10 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
         targetGhoBox = _ghoBox;
     }
 
-    /// @notice takes in GHO or borrows it on behalf of sender and burns it, then sends a CCIP message to the target chain
-    /// @param _amount amount of GHO to be burned and minted on the target chain
-    function burnAndRemoteMint(uint256 _amount, bool isBorrow)
-        public
-        returns (bytes32 ccipId)
-    {
-        ccipId = _burnAndRemoteMint(msg.sender, _amount, isBorrow, 0);
-    }
+    // ==================== PUBLIC METHODS ====================
+    
+
+    // ==================== INTERNAL METHODS ====================
 
     /// @notice takes in GHO or borrows it on behalf of sender and burns it, then sends a CCIP message to the target chain
     /// @param _sender address of the sender
@@ -118,35 +108,6 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
         );
     }
 
-    function _ccipSend(bytes memory rawData)
-        internal
-        returns (bytes32 ccipId)
-    {
-        uint64 _targetChainId = targetChainId;
-        IERC20 _feeToken = IERC20(feeToken);
-        IRouterClient _router = IRouterClient(router);
-
-        Client.EVM2AnyMessage memory mintMessage = Client.EVM2AnyMessage({
-            receiver: abi.encode(targetGhoBox),
-            data: rawData,
-            tokenAmounts: new Client.EVMTokenAmount[](0),
-            extraArgs: Client._argsToBytes(
-                Client.EVMExtraArgsV1({gasLimit: 200_000})
-                ),
-            feeToken: address(_feeToken)
-        });
-
-        uint256 ccipFees = _router.getFee(_targetChainId, mintMessage);
-
-        if (ccipFees > _feeToken.balanceOf(address(this))) {
-            revert NotEnoughBalance(
-                _feeToken.balanceOf(address(this)), ccipFees
-            );
-        }
-        _feeToken.approve(address(_router), ccipFees); // allow chainlink router to take fees
-        ccipId = _router.ccipSend(_targetChainId, mintMessage);
-    }
-
     /// @notice Whenever the target chain gho box burns GHO tokens,
     /// it sends a CCIP message to this contract, with the amount of GHO burned
     /// it then releases the same amount of GHO tokens here.
@@ -182,5 +143,36 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
         } else {
             revert InvalidOp();
         }
+    }
+
+    /// @notice sends a CCIP message to the target chain
+    /// @param rawData raw data to be sent to the target chain
+    function _ccipSend(bytes memory rawData)
+        internal
+        returns (bytes32 ccipId)
+    {
+        uint64 _targetChainId = targetChainId;
+        IERC20 _feeToken = IERC20(feeToken);
+        IRouterClient _router = IRouterClient(router);
+
+        Client.EVM2AnyMessage memory mintMessage = Client.EVM2AnyMessage({
+            receiver: abi.encode(targetGhoBox),
+            data: rawData,
+            tokenAmounts: new Client.EVMTokenAmount[](0),
+            extraArgs: Client._argsToBytes(
+                Client.EVMExtraArgsV1({gasLimit: 200_000})
+                ),
+            feeToken: address(_feeToken)
+        });
+
+        uint256 ccipFees = _router.getFee(_targetChainId, mintMessage);
+
+        if (ccipFees > _feeToken.balanceOf(address(this))) {
+            revert NotEnoughBalance(
+                _feeToken.balanceOf(address(this)), ccipFees
+            );
+        }
+        _feeToken.approve(address(_router), ccipFees); // allow chainlink router to take fees
+        ccipId = _router.ccipSend(_targetChainId, mintMessage);
     }
 }
