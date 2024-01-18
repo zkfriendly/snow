@@ -33,9 +33,33 @@ contract GhoBoxTest is Test {
         assertEq(box.targetChainId(), targetChainId);
     }
 
-    function test_burnAndRemoteMintShouldBorrow(uint256 _amount, bool _isBorrow)
-        public
-    {
+    function test_borrowAndBurnRef() public {
+        uint256 _amount = 6619;
+        uint32 _ref = 3041954473;
+        _mockMintMessageCcip(address(this), _amount, _ref);
+        _mockGhoIntake(_amount, true);
+        _mockAndExpect(
+            ghoToken,
+            abi.encodeWithSelector(IGhoToken.burn.selector, _amount),
+            abi.encode(true)
+        );
+
+        Client.Any2EVMMessage memory _incomingMessage = Client.Any2EVMMessage({
+            messageId: keccak256("burnAndRemoteMint"),
+            sourceChainSelector: targetChainId,
+            sender: abi.encode(address(targetGhoBox)),
+            data: abi.encode(
+                IGhoBoxOp.OpCode.BURN_AND_REMOTE_MINT,
+                abi.encode(address(this), _amount, _ref)
+                ),
+            destTokenAmounts: new Client.EVMTokenAmount[](0)
+        });
+
+        vm.prank(router);
+        box.ccipReceive(_incomingMessage);
+    }
+
+    function test_borrowAndBurnRef0(uint256 _amount, bool _isBorrow) public {
         _mockMintMessageCcip(address(this), _amount, 0);
         _mockGhoIntake(_amount, _isBorrow);
         _mockAndExpect(
@@ -82,7 +106,7 @@ contract GhoBoxTest is Test {
         Client.EVM2AnyMessage memory mintMessage = Client.EVM2AnyMessage({
             receiver: abi.encode(targetGhoBox),
             data: abi.encode(
-                IGhoBoxOp.Op.MINT, abi.encode(_user, _amount, _refrence)
+                IGhoBoxOp.OpCode.MINT, abi.encode(_user, _amount, _refrence)
                 ),
             tokenAmounts: new Client.EVMTokenAmount[](0),
             extraArgs: Client._argsToBytes(
