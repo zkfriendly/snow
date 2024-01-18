@@ -4,13 +4,11 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 import {VirtualAccount} from "../src/VirtualAccount.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Create2} from "../src/Create2.sol";
 import {IPool} from "@aave/v3/core/contracts/interfaces/IPool.sol";
 import {ICreditDelegationToken} from "@aave/v3/core/contracts/interfaces/ICreditDelegationToken.sol";
 
 contract AccountTest is Test {
     VirtualAccount account;
-    Create2 create2 = new Create2();
     address onBehalfOf = address(1);
     address wEth = address(2);
     address dai = address(3);
