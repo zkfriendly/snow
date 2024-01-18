@@ -134,7 +134,7 @@ contract AccountTest is Test {
         vm.expectCall(wEth, approveCall);
 
         vm.prank(onBehalfOf);
-        account.supplyAsCollateral(_token, _amount);
+        account.supplyCollateral(_token, _amount);
     }
 
     function _removeCollateral(address _token, uint256 _amount) internal {

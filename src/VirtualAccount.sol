@@ -13,43 +13,77 @@ import "forge-std/Test.sol";
 contract VirtualAccount is Ownable {
     using SafeERC20 for IERC20;
 
-    address public immutable onBehalfOf;
-    address public immutable pool;
+    address public immutable onBehalfOf; // user address
+    address public immutable pool; // aave v3 pool address
 
-    mapping(address => uint256) public balanceOf;
+    mapping(address => uint256) public balanceOf; // token address => withdrawable balance
 
     error InvalidSender();
 
-    constructor(address _pool, address _onBehalfOf, address _tToken, uint256 _tAmount) Ownable(msg.sender) {
+    /// @notice construct contract with initial deposit and supply as collateral
+    /// @param _pool aave v3 pool address
+    /// @param _onBehalfOf user address
+    /// @param _iToken token address - only aaave v3 tokens are supported
+    /// @param _iAmount amount to deposit
+    constructor(address _pool, address _onBehalfOf, address _iToken, uint256 _iAmount) Ownable(msg.sender) {
         onBehalfOf = _onBehalfOf;
         pool = _pool;
 
-        if (_tToken != address(0) && _tAmount > 0) {
-            deposit(_tToken, _tAmount);
-            _supllyAsCollateral(_tToken, _tAmount);
+        if (_iToken != address(0) && _iAmount > 0) {
+            deposit(_iToken, _iAmount);
+            _supllyAsCollateral(_iToken, _iAmount);
         }
     }
 
-    function supplyAsCollateral(address _token, uint256 _amount) external only(onBehalfOf) {
-        _supllyAsCollateral(_token, _amount);
-    }
-
-    function removeCollateral(address _token, uint256 _amount) external only(onBehalfOf) {
-        _removeCollateral(_token, _amount);
-    }
-
-    function approveDelegation(address debtAsset, address _delegatee, uint256 _amount) external only(onBehalfOf) {
-        ICreditDelegationToken(debtAsset).approveDelegation(_delegatee, _amount);
-    }
-
+    /// @notice deposit token to the virtual account
+    /// @param _token token address - only aaave v3 tokens are supported
+    /// @param _amount amount to deposit
     function deposit(address _token, uint256 _amount) public {
         IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
         _deposit(_token, _amount);
     }
 
+    /// @notice withdraw token from the virtual account
+    /// @param _token token address
+    /// @param _to address to receive the token
     function withdraw(address _token, address _to, uint256 _amount) public only(onBehalfOf) {
         IERC20(_token).safeTransfer(_to, _amount);
         _withdraw(_token, _amount);
+    }
+
+    /// @notice supply token as collateral into Aave v3 pool from the virtual account
+    /// @param _token token address
+    /// @param _amount amount to supply
+    function supplyCollateral(address _token, uint256 _amount) external only(onBehalfOf) {
+        _supllyAsCollateral(_token, _amount);
+    }
+
+    /// @notice remove token as collateral from Aave v3 pool into the virtual account
+    /// @param _token token address
+    /// @param _amount amount to remove
+    /// @dev could fail if the position is undercollateralized
+    function removeCollateral(address _token, uint256 _amount) external only(onBehalfOf) {
+        _removeCollateral(_token, _amount);
+    }
+
+    /// @notice transfer asset from user directly to Aave v3 pool and supply as collateral
+    /// @param _token token address
+    /// @param _amount amount to deposit
+    function depositAsCollateral(address _token, uint256 _amount) public {
+        deposit(_token, _amount);
+        _supllyAsCollateral(_token, _amount);
+    }
+
+    /// @notice remove collateral from Aave v3 pool and transfer to user directly
+    /// @param _token token address
+    /// @param _amount amount to withdraw
+    function removeAndWithdrawCollateral(address _token, uint256 _amount) public {
+        _removeCollateral(_token, _amount);
+        withdraw(_token, msg.sender, _amount);
+    }
+
+    function approveDelegation(address debtAsset, address _delegatee, uint256 _amount) external only(onBehalfOf) {
+        ICreditDelegationToken(debtAsset).approveDelegation(_delegatee, _amount);
     }
 
     function _deposit(address _token, uint256 _amount) internal {
