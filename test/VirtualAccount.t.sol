@@ -113,10 +113,14 @@ contract AccountTest is Test {
     }
 
     function _supplyCollateral(address _token, uint256 _amount) internal {
-        bytes memory _call = abi.encodeWithSelector(IPool.supply.selector, wEth, _amount, address(account), 0);
+        bytes memory approveCall = abi.encodeWithSelector(IERC20.approve.selector, pool, _amount);
+        bytes memory supplyCall = abi.encodeWithSelector(IPool.supply.selector, wEth, _amount, address(account), 0);
 
-        vm.mockCall(pool, _call, abi.encode(true));
-        vm.expectCall(pool, _call);
+        vm.mockCall(pool, supplyCall, abi.encode(true));
+        vm.expectCall(pool, supplyCall);
+
+        vm.mockCall(wEth, approveCall, abi.encode(true));
+        vm.expectCall(wEth, approveCall);
 
         vm.prank(onBehalfOf);
         account.supplyAsCollateral(_token, _amount);

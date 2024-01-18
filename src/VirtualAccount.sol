@@ -26,6 +26,7 @@ contract VirtualAccount is Ownable {
 
         if (_tToken != address(0) && _tAmount > 0) {
             deposit(_tToken, _tAmount);
+            // _supllyAsCollateral(_tToken, _tAmount);
         }
     }
 
@@ -60,6 +61,7 @@ contract VirtualAccount is Ownable {
     }
 
     function _supllyAsCollateral(address _token, uint256 _amount) internal {
+        IERC20(_token).approve(pool, _amount);
         IPool(pool).supply(_token, _amount, address(this), 0);
         _withdraw(_token, _amount);
     }
