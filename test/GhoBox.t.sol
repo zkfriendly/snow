@@ -38,6 +38,11 @@ contract GhoBoxTest is Test {
     {
         _mockMintMessageCcip(address(this), _amount, 0);
         _mockGhoIntake(_amount, _isBorrow);
+        _mockAndExpect(
+            ghoToken,
+            abi.encodeWithSelector(IGhoToken.burn.selector, _amount),
+            abi.encode(true)
+        );
         box.burnAndRemoteMint(_amount, _isBorrow);
     }
 

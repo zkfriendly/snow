@@ -21,15 +21,16 @@ import {CCIPReceiver} from
     "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/applications/CCIPReceiver.sol";
 import {IGhoBoxOp} from "./interfaces/IFacilitatorOp.sol";
 import {IPool} from "@aave/v3/core/contracts/interfaces/IPool.sol";
+import {IGhoToken} from "../src/interfaces/IGhoToken.sol";
 
 contract GhoBox is IGhoBoxOp, CCIPReceiver {
     using SafeERC20 for IERC20;
 
-    IERC20 public immutable gho;
-    IPool public immutable pool; // aave v3 pool address
-    IERC20 public immutable feeToken; // token used to pay for CCIP fees
+    address public immutable gho;
+    address public immutable pool; // aave v3 pool address
+    address public immutable feeToken; // token used to pay for CCIP fees
     uint64 public immutable targetChainId; // chainlink specific chain id
-    IRouterClient public immutable router; // chainlink router address
+    address public immutable router; // chainlink router address
     address public targetGhoBox;
 
     event Mint(address indexed to, uint256 amount, bytes32 ccipId); // GHO locked on mainnet, GHO minted on target chain
@@ -54,11 +55,11 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
         address _router,
         uint64 _targetChainId
     ) CCIPReceiver(_router) {
-        gho = IERC20(_gho);
-        pool = IPool(_pool);
-        feeToken = IERC20(_link);
+        gho = _gho;
+        pool = _pool;
+        feeToken = _link;
         targetChainId = _targetChainId;
-        router = IRouterClient(_router);
+        router = _router;
     }
 
     /// @notice set the target gho box address
@@ -81,12 +82,11 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
         ccipId = _sendMintMessage(_sender, _amount, 0);
 
         if (isBorrow) {
-            pool.borrow(address(gho), _amount, 2, 0, msg.sender); // lock GHO on mainnet
+            IPool(pool).borrow(address(gho), _amount, 2, 0, msg.sender); // lock GHO on mainnet
         } else {
-            gho.safeTransferFrom(_sender, address(this), _amount);
+            IERC20(gho).safeTransferFrom(_sender, address(this), _amount);
         }
-
-        // todo: burn
+        IGhoToken(gho).burn(_amount);
         emit Mint(_sender, _amount, ccipId);
     }
 
@@ -98,13 +98,22 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
         internal
         returns (bytes32 ccipId)
     {
-        IERC20 _feeToken = feeToken;
+        return _ccipSend(
+            abi.encode(Op.MINT, abi.encode(_user, _amount, _refrence))
+        );
+    }
+
+    function _ccipSend(bytes memory rawData)
+        internal
+        returns (bytes32 ccipId)
+    {
         uint64 _targetChainId = targetChainId;
-        IRouterClient _router = router;
+        IERC20 _feeToken = IERC20(feeToken);
+        IRouterClient _router = IRouterClient(router);
 
         Client.EVM2AnyMessage memory mintMessage = Client.EVM2AnyMessage({
             receiver: abi.encode(targetGhoBox),
-            data: abi.encode(Op.MINT, abi.encode(_user, _amount, _refrence)),
+            data: rawData,
             tokenAmounts: new Client.EVMTokenAmount[](0),
             extraArgs: Client._argsToBytes(
                 Client.EVMExtraArgsV1({gasLimit: 200_000})
@@ -136,7 +145,7 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
         }
         (, bytes memory rawData) = abi.decode(burnMessage.data, (Op, bytes));
         (address to, uint256 amount) = abi.decode(rawData, (address, uint256));
-        gho.safeTransfer(to, amount);
+        IERC20(gho).safeTransfer(to, amount);
         emit Burn(to, amount, burnMessage.messageId);
     }
 
