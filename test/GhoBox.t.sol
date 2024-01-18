@@ -34,7 +34,9 @@ contract GhoBoxTest is Test {
     }
 
     function test_borrowAndBurnRef(uint256 _amount, uint32 _ref) public {
-        _mockMintMessageCcip(address(this), _amount, _ref);
+        _mockCcipSend(
+            IGhoBoxOp.OpCode.MINT, abi.encode(address(this), _amount, _ref)
+        );
         _mockGhoIntake(_amount, true);
         _mockAndExpect(
             ghoToken,
@@ -57,7 +59,14 @@ contract GhoBoxTest is Test {
         box.ccipReceive(_incomingMessage);
     }
 
-    function test_requestBorrow() public {}
+    function test_requestBorrow() public {
+        _mockCcipSend(
+            IGhoBoxOp.OpCode.BURN_AND_REMOTE_MINT,
+            abi.encode(address(this), 20, 0)
+        );
+
+        box.requestBorrow(10, 20);
+    }
 
     function _mockGhoIntake(uint256 _amount, bool _isBorrow) internal {
         if (_isBorrow) {
@@ -87,16 +96,12 @@ contract GhoBoxTest is Test {
         }
     }
 
-    function _mockMintMessageCcip(
-        address _user,
-        uint256 _amount,
-        uint32 _refrence
-    ) internal {
-        Client.EVM2AnyMessage memory mintMessage = Client.EVM2AnyMessage({
+    function _mockCcipSend(IGhoBoxOp.OpCode opCode, bytes memory rawData)
+        internal
+    {
+        Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
             receiver: abi.encode(targetGhoBox),
-            data: abi.encode(
-                IGhoBoxOp.OpCode.MINT, abi.encode(_user, _amount, _refrence)
-                ),
+            data: abi.encode(opCode, rawData),
             tokenAmounts: new Client.EVMTokenAmount[](0),
             extraArgs: Client._argsToBytes(
                 Client.EVMExtraArgsV1({gasLimit: 200_000})
@@ -106,20 +111,20 @@ contract GhoBoxTest is Test {
 
         // mock router.getFee
         bytes memory getFeeCall = abi.encodeWithSelector(
-            IRouterClient.getFee.selector, targetChainId, mintMessage
+            IRouterClient.getFee.selector, targetChainId, message
         );
         bytes memory feeTokenBalanceOfCall =
             abi.encodeWithSelector(IERC20.balanceOf.selector, address(box));
         bytes memory feeTokenApproveCall =
             abi.encodeWithSelector(IERC20.approve.selector, router, 10);
         bytes memory ccipSendCall = abi.encodeWithSelector(
-            IRouterClient.ccipSend.selector, targetChainId, mintMessage
+            IRouterClient.ccipSend.selector, targetChainId, message
         );
 
         _mockAndExpect(router, getFeeCall, abi.encode(10));
         _mockAndExpect(linkToken, feeTokenBalanceOfCall, abi.encode(100));
         _mockAndExpect(linkToken, feeTokenApproveCall, abi.encode(true));
-        _mockAndExpect(router, ccipSendCall, abi.encode(keccak256("mint")));
+        _mockAndExpect(router, ccipSendCall, abi.encode(keccak256("msg")));
     }
 
     function _mockAndExpect(

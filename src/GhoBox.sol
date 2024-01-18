@@ -67,7 +67,17 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
     }
 
     // ==================== PUBLIC METHODS ====================
-    
+
+    ///
+    /// @param gCs gho amount to borrow against current chain collateral
+    /// @param gCt gho amount to borrow against target chain collateral
+    function requestBorrow(uint256 gCs, uint256 gCt) external {
+        _ccipSend(
+            abi.encode(
+                OpCode.BURN_AND_REMOTE_MINT, abi.encode(msg.sender, gCt, 0)
+            )
+        );
+    }
 
     // ==================== INTERNAL METHODS ====================
 
@@ -82,30 +92,19 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
         bool _isBorrow,
         uint32 _ref
     ) internal returns (bytes32 ccipId) {
-        ccipId = _sendMintMessage(_sender, _amount, _ref);
-
         if (_isBorrow) {
             IPool(pool).borrow(address(gho), _amount, 2, 0, _sender); // lock GHO on mainnet
         } else {
             IERC20(gho).safeTransferFrom(_sender, address(this), _amount);
         }
-        IGhoToken(gho).burn(_amount);
-        emit Mint(_sender, _amount, ccipId);
-    }
 
-    /// @notice sends a CCIP message to the target chain to mint GHO tokens
-    /// @param _user recipient address on the target chain
-    /// @param _amount amount of GHO to be minted on the target chain
-    /// @param _refrence unique identifier for requester of this mint operation
-    function _sendMintMessage(address _user, uint256 _amount, uint32 _refrence)
-        internal
-        returns (bytes32 ccipId)
-    {
-        return _ccipSend(
+        IGhoToken(gho).burn(_amount);
+        ccipId = _ccipSend(
             abi.encode(
-                OpCode.MINT, abi.encode(MintMessage(_user, _amount, _refrence))
+                OpCode.MINT, abi.encode(MintMessage(_sender, _amount, _ref))
             )
         );
+        emit Mint(_sender, _amount, ccipId);
     }
 
     /// @notice Whenever the target chain gho box burns GHO tokens,
