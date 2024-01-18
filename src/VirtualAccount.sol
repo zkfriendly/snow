@@ -23,16 +23,9 @@ contract VirtualAccount is Ownable {
     /// @notice construct contract with initial deposit and supply as collateral
     /// @param _pool aave v3 pool address
     /// @param _onBehalfOf user address
-    /// @param _iToken token address - only aaave v3 tokens are supported
-    /// @param _iAmount amount to deposit
-    constructor(address _pool, address _onBehalfOf, address _iToken, uint256 _iAmount) Ownable(msg.sender) {
+    constructor(address _pool, address _onBehalfOf) Ownable(msg.sender) {
         onBehalfOf = _onBehalfOf;
         pool = _pool;
-
-        if (_iToken != address(0) && _iAmount > 0) {
-            deposit(_iToken, _iAmount);
-            _supllyAsCollateral(_iToken, _iAmount);
-        }
     }
 
     /// @notice deposit token to the virtual account

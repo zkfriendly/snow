@@ -1,0 +1,37 @@
+{
+  "transactions": [
+    {
+      "hash": "0x25e4388ad5fbf8857ae8c4c4cc4750bb9f4f301dcf37fdb09029a05112ce71ac",
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": "0xd764BAe2A84039D7620e268a4A87B02fdC06E375",
+      "function": "removeAndWithdrawCollateral(address,uint256)",
+      "arguments": [
+        "0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357",
+        "10000000000000000"
+      ],
+      "transaction": {
+        "type": "0x02",
+        "from": "0x743844f742168e0ace16e747745686bcc247146b",
+        "to": "0xd764bae2a84039d7620e268a4a87b02fdc06e375",
+        "gas": "0x44911",
+        "value": "0x0",
+        "data": "0x17b79297000000000000000000000000ff34b3d4aee8ddcd6f9afffb6fe49bd371b8a357000000000000000000000000000000000000000000000000002386f26fc10000",
+        "nonce": "0x20",
+        "accessList": []
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    }
+  ],
+  "receipts": [],
+  "libraries": [],
+  "pending": [
+    "0x25e4388ad5fbf8857ae8c4c4cc4750bb9f4f301dcf37fdb09029a05112ce71ac"
+  ],
+  "returns": {},
+  "timestamp": 1705575892,
+  "chain": 11155111,
+  "multi": false,
+  "commit": "cefb230"
+}

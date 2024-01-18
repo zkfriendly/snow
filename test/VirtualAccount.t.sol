@@ -18,7 +18,7 @@ contract AccountTest is Test {
     address debtAsset = address(5);
 
     function setUp() public {
-        account = new VirtualAccount(pool, onBehalfOf, address(0), 0);
+        account = new VirtualAccount(pool, onBehalfOf);
     }
 
     function test_setUp() public {
@@ -60,7 +60,7 @@ contract AccountTest is Test {
         vm.mockCall(pool, supplyCall, abi.encode(true));
         vm.expectCall(pool, supplyCall);
 
-        account = new VirtualAccount(pool, onBehalfOf, dai, 100);
+        account = new VirtualAccount(pool, onBehalfOf);
 
         assertEq(account.balanceOf(dai), 0);
         assertEq(account.balanceOf(wEth), 0);

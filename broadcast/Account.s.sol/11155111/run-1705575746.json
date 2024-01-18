@@ -1,0 +1,61 @@
+{
+  "transactions": [
+    {
+      "hash": "0x6f1339dc1447c953d13c0fa9724c30551599599744dfa27f5b26f4b79ffa6137",
+      "transactionType": "CALL",
+      "contractName": "TestnetERC20",
+      "contractAddress": "0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357",
+      "function": "approve(address,uint256)",
+      "arguments": [
+        "0xd764BAe2A84039D7620e268a4A87B02fdC06E375",
+        "10000000000000000"
+      ],
+      "transaction": {
+        "type": "0x02",
+        "from": "0x743844f742168e0ace16e747745686bcc247146b",
+        "to": "0xff34b3d4aee8ddcd6f9afffb6fe49bd371b8a357",
+        "gas": "0xf97a",
+        "value": "0x0",
+        "data": "0x095ea7b3000000000000000000000000d764bae2a84039d7620e268a4a87b02fdc06e375000000000000000000000000000000000000000000000000002386f26fc10000",
+        "nonce": "0x1e",
+        "accessList": []
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    },
+    {
+      "hash": "0x2a367af6f16d6a9def21af8e5c5a579386b73e3c3c27aadd0031e896948918ad",
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": "0xd764BAe2A84039D7620e268a4A87B02fdC06E375",
+      "function": "depositAsCollateral(address,uint256)",
+      "arguments": [
+        "0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357",
+        "10000000000000000"
+      ],
+      "transaction": {
+        "type": "0x02",
+        "from": "0x743844f742168e0ace16e747745686bcc247146b",
+        "to": "0xd764bae2a84039d7620e268a4a87b02fdc06e375",
+        "gas": "0x54332",
+        "value": "0x0",
+        "data": "0x4bb45473000000000000000000000000ff34b3d4aee8ddcd6f9afffb6fe49bd371b8a357000000000000000000000000000000000000000000000000002386f26fc10000",
+        "nonce": "0x1f",
+        "accessList": []
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    }
+  ],
+  "receipts": [],
+  "libraries": [],
+  "pending": [
+    "0x6f1339dc1447c953d13c0fa9724c30551599599744dfa27f5b26f4b79ffa6137",
+    "0x2a367af6f16d6a9def21af8e5c5a579386b73e3c3c27aadd0031e896948918ad"
+  ],
+  "returns": {},
+  "timestamp": 1705575746,
+  "chain": 11155111,
+  "multi": false,
+  "commit": "cefb230"
+}
