@@ -5,7 +5,8 @@ import "forge-std/Test.sol";
 import {VirtualAccount} from "../src/VirtualAccount.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPool} from "@aave/v3/core/contracts/interfaces/IPool.sol";
-import {ICreditDelegationToken} from "@aave/v3/core/contracts/interfaces/ICreditDelegationToken.sol";
+import {ICreditDelegationToken} from
+    "@aave/v3/core/contracts/interfaces/ICreditDelegationToken.sol";
 
 contract AccountTest is Test {
     VirtualAccount account;
@@ -69,8 +70,11 @@ contract AccountTest is Test {
     }
 
     function test_delegatesCredit() public {
-        bytes memory _call =
-            abi.encodeWithSelector(ICreditDelegationToken.approveDelegation.selector, address(this), 200);
+        bytes memory _call = abi.encodeWithSelector(
+            ICreditDelegationToken.approveDelegation.selector,
+            address(this),
+            200
+        );
 
         vm.mockCall(debtAsset, _call, abi.encode(true));
         vm.expectCall(debtAsset, _call);
@@ -82,28 +86,49 @@ contract AccountTest is Test {
     function _deposit(address _token, uint256 _amount) internal {
         vm.mockCall(
             address(_token),
-            abi.encodeWithSelector(IERC20.transferFrom.selector, address(this), address(account), _amount),
+            abi.encodeWithSelector(
+                IERC20.transferFrom.selector,
+                address(this),
+                address(account),
+                _amount
+            ),
             abi.encode(true)
         );
 
         vm.expectCall(
-            wEth, abi.encodeWithSelector(IERC20.transferFrom.selector, address(this), address(account), _amount)
+            wEth,
+            abi.encodeWithSelector(
+                IERC20.transferFrom.selector,
+                address(this),
+                address(account),
+                _amount
+            )
         );
 
         account.deposit(wEth, 100);
     }
 
     function _withdraw(address _token, address _to, uint256 _amount) internal {
-        vm.mockCall(address(_token), abi.encodeWithSelector(IERC20.transfer.selector, _to, _amount), abi.encode(true));
-        vm.expectCall(address(_token), abi.encodeWithSelector(IERC20.transfer.selector, _to, _amount));
+        vm.mockCall(
+            address(_token),
+            abi.encodeWithSelector(IERC20.transfer.selector, _to, _amount),
+            abi.encode(true)
+        );
+        vm.expectCall(
+            address(_token),
+            abi.encodeWithSelector(IERC20.transfer.selector, _to, _amount)
+        );
 
         vm.prank(onBehalfOf);
         account.withdraw(address(_token), _to, _amount);
     }
 
     function _supplyCollateral(address _token, uint256 _amount) internal {
-        bytes memory approveCall = abi.encodeWithSelector(IERC20.approve.selector, pool, _amount);
-        bytes memory supplyCall = abi.encodeWithSelector(IPool.supply.selector, wEth, _amount, address(account), 0);
+        bytes memory approveCall =
+            abi.encodeWithSelector(IERC20.approve.selector, pool, _amount);
+        bytes memory supplyCall = abi.encodeWithSelector(
+            IPool.supply.selector, wEth, _amount, address(account), 0
+        );
 
         vm.mockCall(pool, supplyCall, abi.encode(true));
         vm.expectCall(pool, supplyCall);
@@ -116,7 +141,9 @@ contract AccountTest is Test {
     }
 
     function _removeCollateral(address _token, uint256 _amount) internal {
-        bytes memory _call = abi.encodeWithSelector(IPool.withdraw.selector, wEth, _amount, address(account));
+        bytes memory _call = abi.encodeWithSelector(
+            IPool.withdraw.selector, wEth, _amount, address(account)
+        );
 
         vm.mockCall(pool, _call, abi.encode(true));
         vm.expectCall(pool, _call);

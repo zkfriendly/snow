@@ -15,11 +15,11 @@ import {Client} from
     "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/libraries/Client.sol";
 import {CCIPReceiver} from
     "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/applications/CCIPReceiver.sol";
-import {IGhoBoxOp} from "./interfaces/IFacilitatorOp.sol";
+import {IGhoBox} from "./interfaces/IGhoBox.sol";
 import {IPool} from "@aave/v3/core/contracts/interfaces/IPool.sol";
 import {IGhoToken} from "../src/interfaces/IGhoToken.sol";
 
-contract GhoBox is IGhoBoxOp, CCIPReceiver {
+contract GhoBox is IGhoBox, CCIPReceiver {
     using SafeERC20 for IERC20;
 
     address public immutable gho;
@@ -29,12 +29,7 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
     address public immutable router; // chainlink router address
     address public targetGhoBox;
 
-    event Mint(address indexed to, uint256 amount, bytes32 ccipId); // GHO locked on mainnet, GHO minted on target chain
-    event Burn(address indexed to, uint256 amount, bytes32 ccipId); // GHO burned on target chain, GHO unlocked on mainnet
-
-    error NotEnoughBalance(uint256 balance, uint256 required);
-    error FacilitatorAlreadySet(address facilitator);
-    error InvalidSender();
+    BorrowRequest[] public borrowRequests;
 
     /// @notice construct contract
     /// @param _gho GHO token address
@@ -68,25 +63,29 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
 
     // ==================== PUBLIC METHODS ====================
 
-    ///
-    /// @param gCs gho amount to borrow against current chain collateral
-    /// @param gCt gho amount to borrow against target chain collateral
+    /// @notice requests a borrow on the target chain, executes the borrow once request is fulfilled
+    /// @param gCs Gho amount to borrow against current chain collateral
+    /// @param gCt Gho amount to borrow against target chain collateral
     function requestBorrow(uint256 gCs, uint256 gCt) external {
+        uint32 ref = uint32(borrowRequests.length);
+        borrowRequests.push(BorrowRequest(msg.sender, gCs, gCt, ref, false));
         _ccipSend(
             abi.encode(
-                OpCode.BURN_AND_REMOTE_MINT, abi.encode(msg.sender, gCt, 0)
+                OpCode.BURN_AND_REMOTE_MINT, abi.encode(msg.sender, gCt, ref)
             )
         );
+        emit BorrowRequested(msg.sender, gCs, gCt, ref);
     }
 
     // ==================== INTERNAL METHODS ====================
 
-    /// @notice takes in GHO or borrows it on behalf of sender and burns it, then sends a CCIP message to the target chain
+    /// @notice takes in GHO or borrows it on behalf of sender and burns it,
+    /// then sends a CCIP message to the target chain to execute the pending borrow
     /// @param _sender address of the sender
     /// @param _amount amount of GHO to be burned and minted on the target chain
     /// @param _ref unique identifier for requester of this burn operation
     /// @param _isBorrow whether to borrow GHO or take it from the sender
-    function _burnAndRemoteMint(
+    function _executeRemoteBorrow(
         address _sender,
         uint256 _amount,
         bool _isBorrow,
@@ -101,25 +100,44 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
         IGhoToken(gho).burn(_amount);
         ccipId = _ccipSend(
             abi.encode(
-                OpCode.MINT, abi.encode(MintMessage(_sender, _amount, _ref))
+                OpCode.EXECUTE_BORROW,
+                abi.encode(MintMessage(_sender, _amount, _ref))
             )
         );
         emit Mint(_sender, _amount, ccipId);
     }
 
-    /// @notice Whenever the target chain gho box burns GHO tokens,
-    /// it sends a CCIP message to this contract, with the amount of GHO burned
-    /// it then releases the same amount of GHO tokens here.
-    /// @param _mintMessageRawData raw data sent by the target chain gho box through the chainlink router
-    function _handleBurnAndRemoteMint(bytes memory _mintMessageRawData)
-        internal
-    {
+    function _borrowAndBurn(bytes memory _mintMessageRawData) internal {
         MintMessage memory _mintMessage =
             abi.decode(_mintMessageRawData, (MintMessage));
 
-        _burnAndRemoteMint(
+        _executeRemoteBorrow(
             _mintMessage.user, _mintMessage.amount, true, _mintMessage.ref
         );
+    }
+
+    function _handleExecuteBorrow(bytes memory _executeBorrowRawData)
+        internal
+    {
+        uint32 ref = abi.decode(_executeBorrowRawData, (uint32));
+        BorrowRequest storage borrowRequest = borrowRequests[ref];
+
+        if (borrowRequest.fulfilled) revert BorrowAlreadyFulfilled();
+        borrowRequest.fulfilled = true;
+
+        {
+            address user = borrowRequest.user;
+            uint256 gCs = borrowRequest.gCs;
+            uint256 gCt = borrowRequest.gCt;
+            uint256 total = gCs + gCt;
+            address _gho = gho;
+
+            IPool(pool).borrow(address(_gho), gCs, 2, 0, user);
+            IGhoToken(_gho).mint(address(this), gCt);
+            IERC20(_gho).safeTransfer(user, total);
+
+            emit BorrowFulfilled(user, gCs, gCt, ref);
+        }
     }
 
     /// @notice dispatches incoming CCIP messages to the appropriate handler
@@ -138,7 +156,9 @@ contract GhoBox is IGhoBoxOp, CCIPReceiver {
         (OpCode op, bytes memory rawData) =
             abi.decode(_incomingMessage.data, (OpCode, bytes)); // gas ??
         if (op == OpCode.BURN_AND_REMOTE_MINT) {
-            _handleBurnAndRemoteMint(rawData);
+            _borrowAndBurn(rawData);
+        } else if (op == OpCode.EXECUTE_BORROW) {
+            _handleExecuteBorrow(rawData);
         } else {
             revert InvalidOp();
         }
