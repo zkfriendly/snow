@@ -47,11 +47,22 @@ contract AccountTest is Test {
     }
 
     function test_hasInitialTransfer() public {
-        vm.mockCall(dai, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
-        vm.expectCall(dai, abi.encodeWithSelector(IERC20.transferFrom.selector));
+        bytes memory transferCall = abi.encodeWithSelector(IERC20.transferFrom.selector);
+        bytes memory approveCall = abi.encodeWithSelector(IERC20.approve.selector);
+        bytes memory supplyCall = abi.encodeWithSelector(IPool.supply.selector);
+
+        vm.mockCall(dai, transferCall, abi.encode(true));
+        vm.expectCall(dai, transferCall);
+
+        vm.mockCall(dai, approveCall, abi.encode(true));
+        vm.expectCall(dai, approveCall);
+
+        vm.mockCall(pool, supplyCall, abi.encode(true));
+        vm.expectCall(pool, supplyCall);
+
         account = new VirtualAccount(pool, onBehalfOf, dai, 100);
 
-        assertEq(account.balanceOf(dai), 100);
+        assertEq(account.balanceOf(dai), 0);
         assertEq(account.balanceOf(wEth), 0);
     }
 

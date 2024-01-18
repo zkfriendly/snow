@@ -26,7 +26,7 @@ contract VirtualAccount is Ownable {
 
         if (_tToken != address(0) && _tAmount > 0) {
             deposit(_tToken, _tAmount);
-            // _supllyAsCollateral(_tToken, _tAmount);
+            _supllyAsCollateral(_tToken, _tAmount);
         }
     }
 
