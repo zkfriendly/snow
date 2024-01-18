@@ -8,7 +8,7 @@ import {Client} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/librarie
 import {IRouterClient} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IGhoToken} from "../src/interfaces/IGhoToken.sol";
-import {IFacilitatorOp} from "../src/interfaces/IFacilitatorOp.sol";
+import {IGhoBoxOp} from "../src/interfaces/IFacilitatorOp.sol";
 
 contract FacilitatorTest is Test {
     Facilitator public facilitator;
@@ -38,7 +38,7 @@ contract FacilitatorTest is Test {
             messageId: keccak256("frostSignal"),
             sourceChainSelector: sourceChainId,
             sender: abi.encode(ghoBox),
-            data: abi.encode(IFacilitatorOp.Op.MINT, abi.encode(alice, amount)),
+            data: abi.encode(IGhoBoxOp.Op.MINT, abi.encode(alice, amount)),
             destTokenAmounts: new Client.EVMTokenAmount[](0)
         });
 
@@ -52,7 +52,7 @@ contract FacilitatorTest is Test {
         vm.assume(from != address(0) && to != address(0));
         Client.EVM2AnyMessage memory burnSignal = Client.EVM2AnyMessage({
             receiver: abi.encode(ghoBox), // ABI-encoded receiver address
-            data: abi.encode(IFacilitatorOp.Op.BURN, abi.encode(to, amount)), // ABI-encoded string
+            data: abi.encode(IGhoBoxOp.Op.BURN, abi.encode(to, amount)), // ABI-encoded string
             tokenAmounts: new Client.EVMTokenAmount[](0), // Empty array indicating no tokens are being sent
             extraArgs: Client._argsToBytes(
                 // Additional arguments, setting gas limit

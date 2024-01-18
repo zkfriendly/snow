@@ -14,11 +14,11 @@ import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/ap
 import {IGhoToken} from "./interfaces/IGhoToken.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IFacilitatorOp} from "./interfaces/IFacilitatorOp.sol";
+import {IGhoBoxOp} from "./interfaces/IFacilitatorOp.sol";
 
 import "forge-std/Test.sol";
 
-contract Facilitator is IFacilitatorOp, CCIPReceiver {
+contract Facilitator is IGhoBoxOp, CCIPReceiver {
     using SafeERC20 for IERC20;
 
     IGhoToken public immutable gho;

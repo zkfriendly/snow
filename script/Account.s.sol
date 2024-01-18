@@ -7,7 +7,6 @@ import {IPoolDataProvider} from "@aave/v3/core/contracts/interfaces/IPoolDataPro
 import {IPoolAddressesProvider} from "@aave/v3/core/contracts/interfaces/IPoolAddressesProvider.sol";
 import {VirtualAccount} from "../src/VirtualAccount.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Create2} from "../src/Create2.sol";
 
 contract AccountSepoliaDeployer is Script {
     IPoolAddressesProvider addrProvider = AaveV3Sepolia.POOL_ADDRESSES_PROVIDER;

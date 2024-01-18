@@ -11,7 +11,7 @@ remappings = [
 
 
 [fmt]
-line_length = 120
+line_length = 80
 
 [rpc_endpoints]
 sepolia = "${SEPOLIA_RPC_URL}"
