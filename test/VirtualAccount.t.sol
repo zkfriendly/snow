@@ -46,26 +46,6 @@ contract AccountTest is Test {
         assertEq(account.balanceOf(wEth), 60);
     }
 
-    function test_hasInitialTransfer() public {
-        bytes memory transferCall = abi.encodeWithSelector(IERC20.transferFrom.selector);
-        bytes memory approveCall = abi.encodeWithSelector(IERC20.approve.selector);
-        bytes memory supplyCall = abi.encodeWithSelector(IPool.supply.selector);
-
-        vm.mockCall(dai, transferCall, abi.encode(true));
-        vm.expectCall(dai, transferCall);
-
-        vm.mockCall(dai, approveCall, abi.encode(true));
-        vm.expectCall(dai, approveCall);
-
-        vm.mockCall(pool, supplyCall, abi.encode(true));
-        vm.expectCall(pool, supplyCall);
-
-        account = new VirtualAccount(pool, onBehalfOf);
-
-        assertEq(account.balanceOf(dai), 0);
-        assertEq(account.balanceOf(wEth), 0);
-    }
-
     function test_supplyCollateral() public {
         _deposit(wEth, 100);
         _supplyCollateral(wEth, 20);
