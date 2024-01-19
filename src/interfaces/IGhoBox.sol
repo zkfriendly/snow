@@ -4,10 +4,10 @@ pragma solidity ^0.8.0;
 interface IGhoBox {
     enum OpCode {
         EXECUTE_BORROW,
-        BURN_AND_REMOTE_MINT
+        BURN_AND_NOTIFY
     }
 
-    struct MintMessage {
+    struct BurnAndNotifyMessage {
         address user;
         uint256 amount;
         uint32 ref;

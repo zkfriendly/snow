@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.13;
 
-import "forge-std/Test.sol";
-
 import {IRouterClient} from
     "@chainlink/contracts-ccip/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol";
 import {Client} from
@@ -32,6 +30,8 @@ contract GhoBox is IGhoBox, CCIPReceiver {
     // only for mocking and demo purposes
     address public mockGhoToken;
 
+    address internal _admin; // for debug and demo purposes
+
     BorrowRequest[] public borrowRequests;
 
     /// @notice construct contract
@@ -56,16 +56,17 @@ contract GhoBox is IGhoBox, CCIPReceiver {
         router = _router;
 
         mockGhoToken = _mockGhoToken;
+
+        _admin = msg.sender;
     }
 
     /// @notice set the target gho box address
     /// @param _ghoBox address of the target facilitator
     /// @dev can only be called once.
-    function initialize(address _ghoBox) external {
-        if (targetGhoBox != address(0)) {
-            revert FacilitatorAlreadySet(targetGhoBox);
+    function setTargetGhoBoxAddress(address _ghoBox) external {
+        if (msg.sender == _admin) {
+            targetGhoBox = _ghoBox;
         }
-        targetGhoBox = _ghoBox;
     }
 
     // ==================== PUBLIC METHODS ====================
@@ -78,9 +79,12 @@ contract GhoBox is IGhoBox, CCIPReceiver {
         borrowRequests.push(BorrowRequest(msg.sender, gCs, gCt, ref, false));
         _ccipSend(
             abi.encode(
-                OpCode.BURN_AND_REMOTE_MINT, abi.encode(msg.sender, gCt, ref)
+                OpCode.BURN_AND_NOTIFY, // operation op code
+                abi.encode( // operation payload
+                BurnAndNotifyMessage({user: msg.sender, amount: gCt, ref: ref}))
             )
         );
+
         emit BorrowRequested(msg.sender, gCs, gCt, ref);
     }
 
@@ -101,7 +105,7 @@ contract GhoBox is IGhoBox, CCIPReceiver {
 
         (OpCode op, bytes memory rawData) =
             abi.decode(_incomingMessage.data, (OpCode, bytes)); // gas ??
-        if (op == OpCode.BURN_AND_REMOTE_MINT) {
+        if (op == OpCode.BURN_AND_NOTIFY) {
             _handleBurnAndNotify(rawData);
         } else if (op == OpCode.EXECUTE_BORROW) {
             _handleExecuteBorrow(rawData);
@@ -112,30 +116,27 @@ contract GhoBox is IGhoBox, CCIPReceiver {
 
     /// @notice borrows GHO on behalf of sender and burns it,
     /// then sends a CCIP message to the target chain to execute the pending borrow
-    /// @param _mintMessageRawData raw data of the mint message
-    function _handleBurnAndNotify(bytes memory _mintMessageRawData)
+    /// @param _burnAndNotifyMessageRawData raw data of the message
+    function _handleBurnAndNotify(bytes memory _burnAndNotifyMessageRawData)
         internal
         returns (bytes32 ccipId)
     {
-        MintMessage memory _mintMessage =
-            abi.decode(_mintMessageRawData, (MintMessage));
+        BurnAndNotifyMessage memory _mintMessage =
+            abi.decode(_burnAndNotifyMessageRawData, (BurnAndNotifyMessage));
 
-        address _sender = _mintMessage.user;
-        uint256 _amount = _mintMessage.amount;
-        uint32 _ref = _mintMessage.ref;
+        address sender = _mintMessage.user;
+        uint256 amount = _mintMessage.amount;
+        uint32 ref = _mintMessage.ref;
 
-        IPool(pool).borrow(address(gho), _amount, 2, 0, _sender); // lock GHO on mainnet
-
+        IPool(pool).borrow(address(gho), amount, 2, 0, sender); // lock GHO on mainnet
         // IGhoToken(gho).burn(_amount); because we are not whitelisted to burn yet
-        ccipId = _ccipSend(
-            abi.encode(
-                OpCode.EXECUTE_BORROW,
-                abi.encode(MintMessage(_sender, _amount, _ref))
-            )
-        );
-        emit Mint(_sender, _amount, ccipId);
+
+        ccipId = _ccipSend(abi.encode(OpCode.EXECUTE_BORROW, abi.encode(ref)));
+        emit Mint(sender, amount, ccipId);
     }
 
+    /// @notice executes a pending borrow
+    /// @param _executeBorrowRawData raw data of the message
     function _handleExecuteBorrow(bytes memory _executeBorrowRawData)
         internal
     {

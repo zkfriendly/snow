@@ -16,30 +16,34 @@ import {Client} from
 import {IGhoBox} from "../src/interfaces/IGhoBox.sol";
 
 import {MockGho} from "../src/mocks/MockGho.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract GhoBoxSepoliaDeployer is Script {
     address public ghoToken = 0xc4bF5CbDaBE595361438F8c6a187bDc330539c60;
     address public ghoVToken = AaveV3SepoliaAssets.GHO_V_TOKEN;
-    address public pool = 0x0562453c3DAFBB5e625483af58f4E6D668c44e19;
+    address public pool = 0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951;
     address public linkToken = 0x779877A7B0D9E8603169DdbD7836e478b4624789;
     address public router = 0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59;
-    address public mockGhoToken;
+    address public mockGhoToken = 0xBB3938E3cC97BBE495cE318a9f6a15B58EE8a7C9;
     uint64 public targetChainId = 12532609583862916517;
 
-    function setUp() public {
-        mockGhoToken = address(new MockGho());
-    }
+    function setUp() public {}
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+
         vm.startBroadcast(deployerPrivateKey);
+        mockGhoToken = address(new MockGho());
+
+        console2.log("Mock GHO token deployed at: ", address(mockGhoToken));
+
         GhoBox ghoBox = new GhoBox(
             ghoToken, pool, linkToken, router, targetChainId, mockGhoToken
         );
 
         console2.log("GhoBox deployed at: ", address(ghoBox));
 
-        ghoBox.initialize(address(this));
+        ghoBox.setTargetGhoBoxAddress(address(this));
 
         console2.log("GhoBox initialized");
 
@@ -49,7 +53,12 @@ contract GhoBoxSepoliaDeployer is Script {
 
         console2.log("Credit delegation approved");
 
-        ghoBox.requestBorrow(3000000000000000000, 0);
+        // transfer some link tokens
+        IERC20(linkToken).transfer(address(ghoBox), 1 ether);
+
+        console2.log("Link tokens transferred");
+
+        ghoBox.requestBorrow(3000000000000000000, 4000000000000000000);
 
         console2.log("Borrow request sent");
 

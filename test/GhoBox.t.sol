@@ -33,7 +33,7 @@ contract GhoBoxTest is Test {
             targetChainId,
             address(mockGhoToken)
         );
-        box.initialize(targetGhoBox);
+        box.setTargetGhoBoxAddress(targetGhoBox);
     }
 
     function test_Setup() public {
@@ -45,10 +45,7 @@ contract GhoBoxTest is Test {
     function test_borrowAndBurnRef(uint256 _amount, uint32 _ref) public {
         vm.assume(_amount > 0);
 
-        _mockAndExpectCcipSend(
-            IGhoBox.OpCode.EXECUTE_BORROW,
-            abi.encode(address(this), _amount, _ref)
-        );
+        _mockAndExpectCcipSend(IGhoBox.OpCode.EXECUTE_BORROW, abi.encode(_ref));
         _mockGhoBorrow(_amount);
         // _mockAndExpect(
         //     ghoToken,
@@ -61,7 +58,7 @@ contract GhoBoxTest is Test {
             sourceChainSelector: targetChainId,
             sender: abi.encode(address(targetGhoBox)),
             data: abi.encode(
-                IGhoBox.OpCode.BURN_AND_REMOTE_MINT,
+                IGhoBox.OpCode.BURN_AND_NOTIFY,
                 abi.encode(address(this), _amount, _ref)
                 ),
             destTokenAmounts: new Client.EVMTokenAmount[](0)
@@ -141,7 +138,7 @@ contract GhoBoxTest is Test {
 
     function _requestBorrow(uint256 _gCs, uint256 _gCt, uint32 _ref) internal {
         _mockAndExpectCcipSend(
-            IGhoBox.OpCode.BURN_AND_REMOTE_MINT,
+            IGhoBox.OpCode.BURN_AND_NOTIFY,
             abi.encode(address(this), _gCt, _ref)
         );
         box.requestBorrow(_gCs, _gCt);
