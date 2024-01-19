@@ -4,32 +4,44 @@
 
 GhoBox is a contract that simplifies managing liquidity across multiple blockchains without shifting collateral. Users provide liquidity to Aave on any chain and delegate borrowing power to GhoBox to allow it to manage loans on this liquidity. Through the Cross-Chain Interoperability Protocol (CCIP), GhoBox coordinates loans across different chains. It handles all steps – borrowing, burning, and minting GHO tokens – making it easier for users to use their assets on various chains without moving their collateral.
 
-## How It Works
+## How It Works: A Running Example
 
-Here's a step-by-step breakdown of how GhoBox operates:
+Consider Alice, who wants to leverage her assets across Ethereum and Polygon without moving her collateral. Here's how GhoBox helps her:
 
-### 1. Supplying Liquidity to Aave
+### Step 1: Supplying Liquidity to Aave
 
-- **Users' Action**: Users supply liquidity to the Aave protocol on any blockchain of their choice.
+- **Alice’s Action**: Alice supplies liquidity to the Aave protocol on both Ethereum and Polygon.
 
-### 2. Delegating Credit to GhoBox
+### Step 2: Delegating Credit to GhoBox
 
-- **Users' Action**: Users delegate the credit for GHO lending to a GhoBox instance on each chain where they have assets.
+- **Alice’s Action**: She delegates the credit for GHO borrowing to the GhoBox instance on Ethereum and Polygon.
 
-### 3. Requesting a GHO Loan
+### Step 3: Requesting a GHO Loan
 
-- **Users' Action**: Users can request a GHO loan from any supported blockchain.
-- **Details**: When making a loan request, users specify the total amount of GHO they need and the amount they want to borrow from each chain.
+- **Alice’s Action**: Alice needs a total of 1000 GHO. She decides to use 600 GHO against her Ethereum liquidity and 400 GHO against her Polygon liquidity.
+- **Process**: She requests the loan via GhoBox on Ethereum, specifying the amounts from each chain.
 
-### 4. Coordinating Loan Across Chains
+### Step 4: Coordinating Loan Across Chains
 
-- **GhoBox's Role**: Upon receiving a loan request, GhoBox coordinates with other GhoBox instances on the source chains.
-- **Process**: Each GhoBox instance on the source chains takes out the specified GHO loan and immediately burns it.
+- **GhoBox’s Role**: GhoBox on Ethereum coordinates with the GhoBox on Polygon for Alice's loan.
 
-### 5. Confirmations and Loan Fulfillment
+### Step 5: Loan Execution on Polygon
 
-- **Cross-Chain Communication**: GhoBox uses the Cross-Chain Interoperability Protocol (CCIP) to receive confirmations of the GHO burning from the source chains.
-- **Final Step**: After receiving these confirmations, GhoBox mints an equal amount of GHO on the chain where the loan was requested, completing the loan process.
+- **GhoBox’s Action**: GhoBox on Polygon takes out a 400 GHO loan and immediately burns it as part of the process.
+
+### Step 6: Confirmation via CCIP
+
+- **GhoBox’s Action**: GhoBox uses CCIP to confirm the burning of GHO on Polygon.
+
+### Step 7: Minting and Loan Fulfillment on Ethereum
+
+- **Final Action**: After confirmation, GhoBox on Ethereum mints the total 1000 GHO (including the 400 GHO from Polygon) for Alice.
+
+### Conclusion
+
+- **Outcome for Alice**: Alice now has 1000 GHO on Ethereum, using her combined liquidity from Ethereum and Polygon, without transferring her assets.
+
+This example showcases GhoBox's capability in facilitating cross-chain liquidity management efficiently.
 
 ## Features
 
