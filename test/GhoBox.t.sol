@@ -11,9 +11,11 @@ import {Client} from
 import {IGhoBox} from "../src/interfaces/IGhoBox.sol";
 import {IGhoToken} from "../src/interfaces/IGhoToken.sol";
 import {IPool} from "@aave/v3/core/contracts/interfaces/IPool.sol";
+import {MockGho} from "../src/mocks/MockGho.sol";
 
 contract GhoBoxTest is Test {
     GhoBox public box;
+    MockGho public mockGhoToken = new MockGho();
     address public ghoToken = address(1);
     address public linkToken = address(2);
     address public targetGhoBox = address(3);
@@ -23,7 +25,14 @@ contract GhoBoxTest is Test {
     uint64 public sourceChainId = 3;
 
     function setUp() public {
-        box = new GhoBox(ghoToken, pool, linkToken, router, targetChainId);
+        box = new GhoBox(
+            ghoToken,
+            pool,
+            linkToken,
+            router,
+            targetChainId,
+            address(mockGhoToken)
+        );
         box.initialize(targetGhoBox);
     }
 
@@ -40,12 +49,12 @@ contract GhoBoxTest is Test {
             IGhoBox.OpCode.EXECUTE_BORROW,
             abi.encode(address(this), _amount, _ref)
         );
-        _mockGhoIntake(_amount, true);
-        _mockAndExpect(
-            ghoToken,
-            abi.encodeWithSelector(IGhoToken.burn.selector, _amount),
-            abi.encode(true)
-        );
+        _mockGhoBorrow(_amount);
+        // _mockAndExpect(
+        //     ghoToken,
+        //     abi.encodeWithSelector(IGhoToken.burn.selector, _amount),
+        //     abi.encode(true)
+        // ); ******** only for debugging
 
         Client.Any2EVMMessage memory _incomingMessage = Client.Any2EVMMessage({
             messageId: keccak256("burnAndRemoteMint"),
@@ -77,9 +86,9 @@ contract GhoBoxTest is Test {
         assertEq(fulfilled, false);
     }
 
-    function test_executesBorrow(uint256 _total, uint256 _gCs) public {
-        vm.assume(_total > _gCs);
-        uint256 _gCt = _total - _gCs;
+    function test_executesBorrow(uint256 _gCs, uint256 _gCt) public {
+        vm.assume(_gCs > 0 && _gCt > 0);
+        vm.assume(_gCs < 1000 ether && _gCt < 1000 ether);
 
         // first request a borrow
         uint32 _ref = 0;
@@ -95,7 +104,7 @@ contract GhoBoxTest is Test {
         });
 
         _mockAndExpect(
-            ghoToken,
+            address(mockGhoToken),
             abi.encodeWithSelector(IGhoToken.mint.selector, address(box), _gCt),
             abi.encode(true)
         );
@@ -109,7 +118,7 @@ contract GhoBoxTest is Test {
         );
 
         _mockAndExpect(
-            ghoToken,
+            address(mockGhoToken),
             abi.encodeWithSelector(
                 IERC20.transfer.selector, address(this), _gCs + _gCt
             ),
@@ -138,32 +147,14 @@ contract GhoBoxTest is Test {
         box.requestBorrow(_gCs, _gCt);
     }
 
-    function _mockGhoIntake(uint256 _amount, bool _isBorrow) internal {
-        if (_isBorrow) {
-            _mockAndExpect(
-                pool,
-                abi.encodeWithSelector(
-                    IPool.borrow.selector,
-                    ghoToken,
-                    _amount,
-                    2,
-                    0,
-                    address(this)
-                ),
-                abi.encode(true)
-            );
-        } else {
-            _mockAndExpect(
-                ghoToken,
-                abi.encodeWithSelector(
-                    IERC20.transferFrom.selector,
-                    address(this),
-                    address(box),
-                    _amount
-                ),
-                abi.encode(true)
-            );
-        }
+    function _mockGhoBorrow(uint256 _amount) internal {
+        _mockAndExpect(
+            pool,
+            abi.encodeWithSelector(
+                IPool.borrow.selector, ghoToken, _amount, 2, 0, address(this)
+            ),
+            abi.encode(true)
+        );
     }
 
     function _mockAndExpectCcipSend(IGhoBox.OpCode opCode, bytes memory rawData)

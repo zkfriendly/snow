@@ -29,6 +29,9 @@ contract GhoBox is IGhoBox, CCIPReceiver {
     address public immutable router; // chainlink router address
     address public targetGhoBox;
 
+    // only for mocking and demo purposes
+    address public mockGhoToken;
+
     BorrowRequest[] public borrowRequests;
 
     /// @notice construct contract
@@ -37,18 +40,22 @@ contract GhoBox is IGhoBox, CCIPReceiver {
     /// @param _link we are choosing LINK as the fee token
     /// @param _router chainlink router address
     /// @param _targetChainId target chain id (where GHO is minted)
+    /// @param _mockGhoToken address of the mock GHO token
     constructor(
         address _gho,
         address _pool,
         address _link,
         address _router,
-        uint64 _targetChainId
+        uint64 _targetChainId,
+        address _mockGhoToken // mint and burn are applied to this only for demo purposes
     ) CCIPReceiver(_router) {
         gho = _gho;
         pool = _pool;
         feeToken = _link;
         targetChainId = _targetChainId;
         router = _router;
+
+        mockGhoToken = _mockGhoToken;
     }
 
     /// @notice set the target gho box address
@@ -79,25 +86,47 @@ contract GhoBox is IGhoBox, CCIPReceiver {
 
     // ==================== INTERNAL METHODS ====================
 
-    /// @notice takes in GHO or borrows it on behalf of sender and burns it,
-    /// then sends a CCIP message to the target chain to execute the pending borrow
-    /// @param _sender address of the sender
-    /// @param _amount amount of GHO to be burned and minted on the target chain
-    /// @param _ref unique identifier for requester of this burn operation
-    /// @param _isBorrow whether to borrow GHO or take it from the sender
-    function _executeRemoteBorrow(
-        address _sender,
-        uint256 _amount,
-        bool _isBorrow,
-        uint32 _ref
-    ) internal returns (bytes32 ccipId) {
-        if (_isBorrow) {
-            IPool(pool).borrow(address(gho), _amount, 2, 0, _sender); // lock GHO on mainnet
-        } else {
-            IERC20(gho).safeTransferFrom(_sender, address(this), _amount);
+    /// @notice dispatches incoming CCIP messages to the appropriate handler
+    /// @param _incomingMessage CCIP messages received from the outside world through the chainlink router
+    function _ccipReceive(Client.Any2EVMMessage memory _incomingMessage)
+        internal
+        override
+    {
+        address sender = abi.decode(_incomingMessage.sender, (address));
+        uint64 senderChainId = _incomingMessage.sourceChainSelector;
+        // only accept messages from the target gho box
+        if (sender != targetGhoBox || senderChainId != targetChainId) {
+            revert InvalidSender();
         }
 
-        IGhoToken(gho).burn(_amount);
+        (OpCode op, bytes memory rawData) =
+            abi.decode(_incomingMessage.data, (OpCode, bytes)); // gas ??
+        if (op == OpCode.BURN_AND_REMOTE_MINT) {
+            _handleBurnAndNotify(rawData);
+        } else if (op == OpCode.EXECUTE_BORROW) {
+            _handleExecuteBorrow(rawData);
+        } else {
+            revert InvalidOp();
+        }
+    }
+
+    /// @notice borrows GHO on behalf of sender and burns it,
+    /// then sends a CCIP message to the target chain to execute the pending borrow
+    /// @param _mintMessageRawData raw data of the mint message
+    function _handleBurnAndNotify(bytes memory _mintMessageRawData)
+        internal
+        returns (bytes32 ccipId)
+    {
+        MintMessage memory _mintMessage =
+            abi.decode(_mintMessageRawData, (MintMessage));
+
+        address _sender = _mintMessage.user;
+        uint256 _amount = _mintMessage.amount;
+        uint32 _ref = _mintMessage.ref;
+
+        IPool(pool).borrow(address(gho), _amount, 2, 0, _sender); // lock GHO on mainnet
+
+        // IGhoToken(gho).burn(_amount); because we are not whitelisted to burn yet
         ccipId = _ccipSend(
             abi.encode(
                 OpCode.EXECUTE_BORROW,
@@ -105,15 +134,6 @@ contract GhoBox is IGhoBox, CCIPReceiver {
             )
         );
         emit Mint(_sender, _amount, ccipId);
-    }
-
-    function _borrowAndBurn(bytes memory _mintMessageRawData) internal {
-        MintMessage memory _mintMessage =
-            abi.decode(_mintMessageRawData, (MintMessage));
-
-        _executeRemoteBorrow(
-            _mintMessage.user, _mintMessage.amount, true, _mintMessage.ref
-        );
     }
 
     function _handleExecuteBorrow(bytes memory _executeBorrowRawData)
@@ -133,34 +153,11 @@ contract GhoBox is IGhoBox, CCIPReceiver {
             address _gho = gho;
 
             IPool(pool).borrow(address(_gho), gCs, 2, 0, user);
-            IGhoToken(_gho).mint(address(this), gCt);
-            IERC20(_gho).safeTransfer(user, total);
+            IGhoToken(mockGhoToken).mint(address(this), gCt); // using mockGho for minting
+            IGhoToken(mockGhoToken).mint(address(this), gCs); // not needed if whitelisted as facilitator
+            IERC20(mockGhoToken).safeTransfer(user, total);
 
             emit BorrowFulfilled(user, gCs, gCt, ref);
-        }
-    }
-
-    /// @notice dispatches incoming CCIP messages to the appropriate handler
-    /// @param _incomingMessage CCIP messages received from the outside world through the chainlink router
-    function _ccipReceive(Client.Any2EVMMessage memory _incomingMessage)
-        internal
-        override
-    {
-        address sender = abi.decode(_incomingMessage.sender, (address));
-        uint64 senderChainId = _incomingMessage.sourceChainSelector;
-        // only accept messages from the target gho box
-        if (sender != targetGhoBox || senderChainId != targetChainId) {
-            revert InvalidSender();
-        }
-
-        (OpCode op, bytes memory rawData) =
-            abi.decode(_incomingMessage.data, (OpCode, bytes)); // gas ??
-        if (op == OpCode.BURN_AND_REMOTE_MINT) {
-            _borrowAndBurn(rawData);
-        } else if (op == OpCode.EXECUTE_BORROW) {
-            _handleExecuteBorrow(rawData);
-        } else {
-            revert InvalidOp();
         }
     }
 
