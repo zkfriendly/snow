@@ -1,4 +1,4 @@
-# GhoBox
+# GhoBox: Liquidity Unifier Without Shifting Collateral.
 
 ## Overview
 
