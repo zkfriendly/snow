@@ -121,18 +121,15 @@ contract GhoBox is IGhoBox, CCIPReceiver {
         internal
         returns (bytes32 ccipId)
     {
-        BurnAndNotifyMessage memory _mintMessage =
+        BurnAndNotifyMessage memory _msg =
             abi.decode(_burnAndNotifyMessageRawData, (BurnAndNotifyMessage));
 
-        address sender = _mintMessage.user;
-        uint256 amount = _mintMessage.amount;
-        uint32 ref = _mintMessage.ref;
-
-        IPool(pool).borrow(address(gho), amount, 2, 0, sender); // lock GHO on mainnet
+        IPool(pool).borrow(address(gho), _msg.amount, 2, 0, _msg.user); // lock GHO on mainnet
         // IGhoToken(gho).burn(_amount); because we are not whitelisted to burn yet
 
-        ccipId = _ccipSend(abi.encode(OpCode.EXECUTE_BORROW, abi.encode(ref)));
-        emit Mint(sender, amount, ccipId);
+        ccipId =
+            _ccipSend(abi.encode(OpCode.EXECUTE_BORROW, abi.encode(_msg.ref)));
+        emit Mint(_msg.user, _msg.amount, ccipId);
     }
 
     /// @notice executes a pending borrow
