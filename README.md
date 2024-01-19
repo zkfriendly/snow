@@ -1,71 +1,39 @@
-# Snow: GHO Portal Facilitator Using Chainlink CCIP
+# GhoBox
 
 ## Overview
 
-The `Snow` and `Frost` contracts are part of a cross-chain token facilitation system using Chainlink's Cross-Chain Interoperability Protocol (CCIP). These contracts are designed for managing the GHO token across different blockchain networks.
+GhoBox is a contract that simplifies managing liquidity across multiple blockchains without shifting collateral. Users provide liquidity to Aave on any chain and delegate borrowing power to GhoBox to allow it to manage loans on this liquidity. Through the Cross-Chain Interoperability Protocol (CCIP), GhoBox coordinates loans across different chains. It handles all steps – borrowing, burning, and minting GHO tokens – making it easier for users to use their assets on various chains without moving their collateral.
 
-### Snow Contract
+## How It Works
 
-- **File**: `Snow.sol`
-- **Author**: @zkfriendly
-- **Mainnet Deployment**: The `Snow` contract is deployed on the Ethereum mainnet.
-- **Purpose**: It interacts with the AAVE GHO Facilitator to lock GHO tokens on the Ethereum mainnet and facilitates cross-chain token transfers.
+Here's a step-by-step breakdown of how GhoBox operates:
 
-#### Key Features:
+### 1. Supplying Liquidity to Aave
 
-- **Frost**: Lock GHO tokens on the mainnet and send a CCIP message to mint GHO on the target chain.
-- **Thaw**: Receive burn attestations from the target chain and release GHO tokens on the mainnet.
+- **Users' Action**: Users supply liquidity to the Aave protocol on any blockchain of their choice.
 
-### Frost Contract
+### 2. Delegating Credit to GhoBox
 
-- **File**: `Frost.sol`
-- **Author**: @zkfriendly
-- **Target Chain Deployment**: The `Frost` contract is deployed on a target chain other than Ethereum mainnet.
-- **Purpose**: It serves as a GHO Facilitator on the target chain, managing the minting and burning of GHO tokens.
+- **Users' Action**: Users delegate the credit for GHO lending to a GhoBox instance on each chain where they have assets.
 
-#### Key Features:
+### 3. Requesting a GHO Loan
 
-- **Mint**: Receive CCIP messages from the source chain (Snow contract) to mint GHO tokens on the target chain.
-- **Burn**: Burn GHO tokens on the target chain and send a CCIP message to the source chain to unlock the same amount of GHO.
+- **Users' Action**: Users can request a GHO loan from any supported blockchain.
+- **Details**: When making a loan request, users specify the total amount of GHO they need and the amount they want to borrow from each chain.
 
-## Technical Details
+### 4. Coordinating Loan Across Chains
 
-### Snow.sol
+- **GhoBox's Role**: Upon receiving a loan request, GhoBox coordinates with other GhoBox instances on the source chains.
+- **Process**: Each GhoBox instance on the source chains takes out the specified GHO loan and immediately burns it.
 
-- **Solidity Version**: `^0.8.13`
-- **Dependencies**:
-  - Chainlink CCIP Contracts
-  - OpenZeppelin ERC20 and SafeERC20
-- **Events**:
-  - `Frost(address indexed to, uint256 amount, bytes32 forgeId)`
-  - `Thaw(address indexed to, uint256 amount, bytes32 forgeId)`
-- **Errors**:
-  - `NotEnoughBalance`
-  - `FacilitatorAlreadySet`
-  - `InvalidSender`
+### 5. Confirmations and Loan Fulfillment
 
-### Frost.sol
+- **Cross-Chain Communication**: GhoBox uses the Cross-Chain Interoperability Protocol (CCIP) to receive confirmations of the GHO burning from the source chains.
+- **Final Step**: After receiving these confirmations, GhoBox mints an equal amount of GHO on the chain where the loan was requested, completing the loan process.
 
-- **Solidity Version**: `^0.8.13`
-- **Dependencies**:
-  - Chainlink CCIP Contracts
-  - OpenZeppelin ERC20 and SafeERC20
-  - IGhoToken Interface
-- **Events**:
-  - `Mint(address indexed to, uint256 amount, bytes32 frostId)`
-  - `Burn(address indexed to, uint256 amount, bytes32 thawId)`
-- **Errors**:
-  - `InvalidSender`
-  - `NotEnoughBalance`
+## Features
 
-## Installation and Setup
-
-To use these contracts, clone the repository and install dependencies using your preferred package manager.
-
-## Contributing
-
-Contributions are welcome. Please submit pull requests for any enhancements.
-
-## License
-
-These contracts are released under the MIT License.
+- Seamless liquidity aggregation across multiple chains without moving collateral.
+- Credit delegation using GHO tokens.
+- Cross-chain loan management via CCIP.
+- Integration with Chainlink and Aave protocols for robust and secure operations.
