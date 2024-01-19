@@ -77,9 +77,9 @@ contract GhoBoxTest is Test {
         assertEq(fulfilled, false);
     }
 
-    function test_executesBorrow() public {
-        uint256 _gCs = 50;
-        uint256 _gCt = 70;
+    function test_executesBorrow(uint256 _total, uint256 _gCs) public {
+        vm.assume(_total > _gCs);
+        uint256 _gCt = _total - _gCs;
 
         // first request a borrow
         uint32 _ref = 0;
@@ -123,6 +123,11 @@ contract GhoBoxTest is Test {
         (,,,, bool fulfilled) = box.borrowRequests(_ref);
 
         assertEq(fulfilled, true);
+    }
+
+    function test_secondBorrowRequestIncrementsRef() public {
+        _requestBorrow(1, 1, 0);
+        _requestBorrow(1, 1, 1);
     }
 
     function _requestBorrow(uint256 _gCs, uint256 _gCt, uint32 _ref) internal {
