@@ -174,7 +174,7 @@ contract GhoBox is IGhoBox, CCIPReceiver {
             data: rawData,
             tokenAmounts: new Client.EVMTokenAmount[](0),
             extraArgs: Client._argsToBytes(
-                Client.EVMExtraArgsV1({gasLimit: 200_000})
+                Client.EVMExtraArgsV1({gasLimit: 100_0000})
                 ),
             feeToken: address(_feeToken)
         });
