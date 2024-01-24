@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 
+/// @title GhoBox: Aave V3 GHO Box
+/// @author @zkfriendly
+
 pragma solidity ^0.8.13;
 
 import {IRouterClient} from
@@ -75,8 +78,17 @@ contract GhoBox is IGhoBox, CCIPReceiver {
     /// @param gCs Gho amount to borrow against current chain collateral
     /// @param gCt Gho amount to borrow against target chain collateral
     function requestBorrow(uint256 gCs, uint256 gCt) external {
+        if (gCs == 0 && gCt == 0) revert ZeroAmount();
+
         uint32 ref = uint32(borrowRequests.length);
         borrowRequests.push(BorrowRequest(msg.sender, gCs, gCt, ref, false));
+
+        if (gCs > 0 && gCt == 0) {
+            // execute borrow immediately if target borrow amount is 0
+            return _handleExecuteBorrow(abi.encode(ref));
+        }
+
+        // only request burn and notify if target borrow amoutn is > 0
         _ccipSend(
             abi.encode(
                 OpCode.BURN_AND_NOTIFY, // operation op code

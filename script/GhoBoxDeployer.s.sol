@@ -32,17 +32,13 @@ contract GhoBoxSepoliaDeployer is Script {
 
     address public linkToken = 0x779877A7B0D9E8603169DdbD7836e478b4624789;
     address public router = 0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59;
-    address public mockGhoToken;
+    address public mockGhoToken = 0x78b8B87092309e1a2f0dd793657Fa79016d1BF1D;
     uint64 public targetChainId = 12532609583862916517; // mumbai
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
         vm.startBroadcast(deployerPrivateKey);
-
-        mockGhoToken = address(new MockGho());
-
-        console2.log("Mock GHO token deployed at: ", address(mockGhoToken));
 
         GhoBox ghoBox = new GhoBox(
             ghoToken, pool, linkToken, router, targetChainId, mockGhoToken
@@ -73,8 +69,8 @@ contract GhoBoxMumbaiDeployer is Script {
     address public linkToken = 0x326C977E6efc84E512bB9C30f76E30c160eD06FB;
     address public router = 0x1035CabC275068e0F4b745A29CEDf38E13aF41b1;
     uint64 public targetChainId = 16015286601757825753; // sepolia
-    address public targetGhoBox = 0xf6f6356535e15853e34c8a18a0F290c07936AF7f;
-    address public mockGhoToken;
+    address public targetGhoBox = 0x151F89E805BDCD69e62dF44eD450b481A48fF31b;
+    address public mockGhoToken = 0x6B0113982FF09Eb5835e6Fba27056b65d7caB49F;
 
     function setUp() public {}
 
@@ -82,9 +78,6 @@ contract GhoBoxMumbaiDeployer is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
         vm.startBroadcast(deployerPrivateKey);
-        mockGhoToken = address(new MockGho());
-
-        console2.log("Mock GHO token deployed at: ", address(mockGhoToken));
 
         GhoBox ghoBox = new GhoBox(
             ghoToken, pool, linkToken, router, targetChainId, mockGhoToken

@@ -35,4 +35,5 @@ interface IGhoBox {
     error InvalidSender();
     error InvalidOp();
     error BorrowAlreadyFulfilled();
+    error ZeroAmount();
 }
