@@ -49,3 +49,6 @@ This example showcases GhoBox's capability in facilitating cross-chain liquidity
 - Credit delegation using GHO tokens.
 - Cross-chain loan management via CCIP.
 - Integration with Chainlink and Aave protocols for robust and secure operations.
+
+### Front-End
+Checkout the front-end repo here: https://github.com/Amirerfan/gho-bridge
