@@ -51,4 +51,9 @@ This example showcases GhoBox's capability in facilitating cross-chain liquidity
 - Integration with Chainlink and Aave protocols for robust and secure operations.
 
 ### Front-End
+
 Checkout the front-end repo here: https://github.com/Amirerfan/gho-bridge
+
+### get in touch
+
+@zkfriendly on telegram.
