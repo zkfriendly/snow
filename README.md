@@ -54,6 +54,10 @@ This example showcases GhoBox's capability in facilitating cross-chain liquidity
 
 Checkout the front-end repo here: https://github.com/Amirerfan/gho-bridge
 
+### Live Demo Link
+
+https://gho-bridge.vercel.app/
+
 ### get in touch
 
 @zkfriendly on telegram.
